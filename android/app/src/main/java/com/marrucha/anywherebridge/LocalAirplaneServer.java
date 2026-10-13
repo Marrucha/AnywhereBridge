@@ -203,6 +203,12 @@ public class LocalAirplaneServer extends NanoWSD {
     // -------------------------------------------------------------
     @Override
     public Response serve(IHTTPSession session) {
+        // Delegate WebSocket upgrade requests to NanoWSD
+        Map<String, String> headers = session.getHeaders();
+        if (isWebsocketRequested(session) || "websocket".equalsIgnoreCase(headers.get("upgrade"))) {
+            return super.serve(session);
+        }
+
         // Strip query string
         String uri = session.getUri();
         if (uri.contains("?")) {

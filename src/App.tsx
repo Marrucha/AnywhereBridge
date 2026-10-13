@@ -3,6 +3,7 @@ import { RoomState, Seat, ClientMessage, ServerMessage, ScoreRecord } from './ty
 import { BridgeTable } from './components/BridgeTable';
 import { ScoreModal } from './components/ScoreModal';
 import { QRModal } from './components/QRModal';
+import { ConnectionModal } from './components/ConnectionModal';
 import {
   getStoredScores,
   saveScoreRecord,
@@ -13,7 +14,7 @@ import {
   getStoredSeat,
   saveStoredSeat,
 } from './storage/scores';
-import { Plane, Trophy, QrCode, RotateCcw, Wifi, WifiOff } from 'lucide-react';
+import { Plane, Trophy, QrCode, RotateCcw, Wifi, WifiOff, Settings } from 'lucide-react';
 
 const DEFAULT_ROOM_ID = 'air-737';
 
@@ -38,8 +39,12 @@ export const App: React.FC = () => {
     if (qServer) return qServer;
     const stored = localStorage.getItem('anywhere_bridge_server_addr');
     if (stored) return stored;
-    if (window.location.hostname.includes('github.io')) {
+    const h = window.location.hostname;
+    if (h.includes('web.app') || h.includes('firebaseapp') || h.includes('github.io')) {
       return '192.168.43.1:8080';
+    }
+    if (h === 'localhost' || h === '127.0.0.1') {
+      return '127.0.0.1:8080';
     }
     return '';
   });
@@ -47,10 +52,12 @@ export const App: React.FC = () => {
   const [mySeat, setMySeat] = useState<Seat | null>(() => getStoredSeat());
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
+  const [activeWsUrl, setActiveWsUrl] = useState<string>('');
 
   // Modals
   const [isScoreOpen, setIsScoreOpen] = useState(false);
   const [isQROpen, setIsQROpen] = useState(false);
+  const [isConnectionOpen, setIsConnectionOpen] = useState(false);
   const [localScores, setLocalScores] = useState<ScoreRecord[]>(() => getStoredScores());
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -63,13 +70,18 @@ export const App: React.FC = () => {
       let targetHost = serverAddress;
       if (!targetHost) {
         if (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1') {
+          targetHost = '127.0.0.1:8080';
+        } else if (loc.port === '3000') {
           targetHost = `${loc.hostname}:8080`;
+        } else if (loc.port) {
+          targetHost = loc.host;
         } else {
-          targetHost = loc.port === '3000' ? `${loc.hostname}:8080` : loc.host;
+          targetHost = '192.168.43.1:8080';
         }
       }
-      const protocol = loc.protocol === 'https:' && !targetHost.startsWith('192.168.') && !targetHost.startsWith('10.') && !targetHost.startsWith('localhost') ? 'wss:' : 'ws:';
+      const protocol = loc.protocol === 'https:' && !targetHost.startsWith('192.168.') && !targetHost.startsWith('10.') && !targetHost.startsWith('localhost') && !targetHost.startsWith('127.0.0.1') ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${targetHost}`;
+      setActiveWsUrl(wsUrl);
 
       try {
         const ws = new WebSocket(wsUrl);
@@ -199,6 +211,21 @@ export const App: React.FC = () => {
     }
   };
 
+  const handleUpdateConnection = (newServer: string, newRoom: string) => {
+    localStorage.setItem('anywhere_bridge_server_addr', newServer);
+    setServerAddress(newServer);
+    if (newRoom && newRoom !== roomId) {
+      setRoomId(newRoom);
+      const url = new URL(window.location.href);
+      url.searchParams.set('room', newRoom);
+      url.searchParams.set('server', newServer);
+      window.history.replaceState({}, '', url.toString());
+    }
+    if (wsRef.current) {
+      wsRef.current.close();
+    }
+  };
+
   const serverUrl = window.location.origin;
 
   return (
@@ -233,14 +260,19 @@ export const App: React.FC = () => {
 
         {/* Right Action Buttons */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Connection status indicator */}
-          <div className="flex items-center text-xs mr-1" title={connected ? 'Połączono z serwerem pokładowym' : 'Rozłączono'}>
+          {/* Connection status indicator / Settings */}
+          <button
+            type="button"
+            onClick={() => setIsConnectionOpen(true)}
+            className="flex items-center text-xs mr-1 p-1.5 rounded-lg hover:bg-slate-800 transition border border-slate-800"
+            title={connected ? `Połączono: ${activeWsUrl} (Kliknij by zmienić)` : `Rozłączono (${activeWsUrl}) - Kliknij by skonfigurować`}
+          >
             {connected ? (
               <Wifi className="w-4 h-4 text-emerald-400 animate-pulse" />
             ) : (
               <WifiOff className="w-4 h-4 text-rose-500" />
             )}
-          </div>
+          </button>
 
           {/* Scorepad button */}
           <button
@@ -296,10 +328,41 @@ export const App: React.FC = () => {
             onResetRoom={handleResetRoom}
           />
         ) : (
-          <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-3">
-            <div className="w-10 h-10 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-sm font-semibold text-slate-300">Łączenie z serwerem pokładowym anywhereBridge...</p>
-            <p className="text-xs text-slate-500 font-mono">Pokój: {roomId}</p>
+          <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4 max-w-sm mx-auto">
+            <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+            <div>
+              <p className="text-base font-bold text-slate-100">Łączenie z serwerem pokładowym anywhereBridge...</p>
+              <p className="text-xs text-slate-400 mt-1">Pokój: <span className="font-mono text-amber-400 font-bold">{roomId}</span></p>
+              <p className="text-[11px] text-slate-500 font-mono mt-0.5 break-all">Adres: {activeWsUrl}</p>
+            </div>
+
+            <div className="bg-slate-900/95 border border-slate-800 rounded-xl p-3 w-full text-xs text-slate-300 space-y-2 shadow-xl">
+              <p className="text-slate-400 text-[11px] font-medium">Brak połączenia? Wybierz rolę:</p>
+              <div className="flex flex-col gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleUpdateConnection('127.0.0.1:8080', roomId)}
+                  className="py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-98 text-amber-300 border border-slate-700 rounded-lg font-bold transition flex items-center justify-center gap-1.5 text-xs"
+                >
+                  📱 Jestem Hostem (127.0.0.1:8080)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleUpdateConnection('192.168.43.1:8080', roomId)}
+                  className="py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-98 text-emerald-300 border border-slate-700 rounded-lg font-bold transition flex items-center justify-center gap-1.5 text-xs"
+                >
+                  ✈️ Łączę się z Hotspotem (192.168.43.1:8080)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsConnectionOpen(true)}
+                  className="py-1.5 px-3 bg-slate-950 hover:bg-slate-800 text-slate-400 rounded-lg transition flex items-center justify-center gap-1 text-[11px]"
+                >
+                  <Settings className="w-3.5 h-3.5" />
+                  Wpisz inny adres IP
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>
@@ -317,6 +380,14 @@ export const App: React.FC = () => {
         onClose={() => setIsQROpen(false)}
         serverUrl={serverUrl}
         roomId={roomId}
+      />
+
+      <ConnectionModal
+        isOpen={isConnectionOpen}
+        onClose={() => setIsConnectionOpen(false)}
+        currentServer={serverAddress}
+        currentRoom={roomId}
+        onSave={handleUpdateConnection}
       />
     </div>
   );
