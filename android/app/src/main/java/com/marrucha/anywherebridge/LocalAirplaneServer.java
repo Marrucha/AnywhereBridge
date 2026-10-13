@@ -267,7 +267,7 @@ public class LocalAirplaneServer extends NanoWSD {
             byte[] fileBytes = buffer.toByteArray();
             is.close();
 
-            String mime = getMimeTypeForFile(assetPath);
+            String mime = resolveMimeType(assetPath);
             Response res = newFixedLengthResponse(Response.Status.OK, mime, new ByteArrayInputStream(fileBytes), fileBytes.length);
             addCorsHeaders(res);
             res.addHeader("Cache-Control", "no-cache, no-store, must-revalidate");
@@ -286,7 +286,7 @@ public class LocalAirplaneServer extends NanoWSD {
         response.addHeader("Access-Control-Allow-Headers", "Content-Type");
     }
 
-    private String getMimeTypeForFile(String path) {
+    private String resolveMimeType(String path) {
         if (path.endsWith(".html")) return "text/html; charset=utf-8";
         if (path.endsWith(".js")) return "application/javascript; charset=utf-8";
         if (path.endsWith(".css")) return "text/css; charset=utf-8";
