@@ -53,6 +53,7 @@ export const App: React.FC = () => {
   const [roomState, setRoomState] = useState<RoomState | null>(null);
   const [connected, setConnected] = useState<boolean>(false);
   const [activeWsUrl, setActiveWsUrl] = useState<string>('');
+  const [detectedIps, setDetectedIps] = useState<string[]>([]);
 
   // Modals
   const [isScoreOpen, setIsScoreOpen] = useState(false);
@@ -62,6 +63,26 @@ export const App: React.FC = () => {
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Auto-detect server info (IPs) for QR code
+  useEffect(() => {
+    const fetchInfo = async () => {
+      const endpoints = ['/api/info', 'http://127.0.0.1:8080/api/info', 'http://192.168.43.1:8080/api/info'];
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(ep);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.serverIps && Array.isArray(data.serverIps)) {
+              setDetectedIps(data.serverIps);
+              break;
+            }
+          }
+        } catch (ignored) {}
+      }
+    };
+    fetchInfo();
+  }, []);
 
   // Connect to WebSocket
   useEffect(() => {
@@ -291,14 +312,15 @@ export const App: React.FC = () => {
           </button>
 
           {/* QR Code button */}
+          {/* QR Code button */}
           <button
             type="button"
             onClick={() => setIsQROpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-700 rounded-lg text-xs font-bold transition shadow"
-            title="Kod QR dla współgraczy w samolocie"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/40 rounded-lg text-xs font-bold transition shadow"
+            title="Pokaż kod QR dla współgraczy w samolocie"
           >
             <QrCode className="w-4 h-4" />
-            <span className="hidden sm:inline">Połącz</span>
+            <span>Kod QR</span>
           </button>
 
           {/* Kill-switch / Reset button */}
@@ -326,6 +348,7 @@ export const App: React.FC = () => {
             onPlayCard={handlePlayCard}
             onNextBoard={handleNextBoard}
             onResetRoom={handleResetRoom}
+            onOpenQR={() => setIsQROpen(true)}
           />
         ) : (
           <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4 max-w-sm mx-auto">
@@ -378,7 +401,7 @@ export const App: React.FC = () => {
       <QRModal
         isOpen={isQROpen}
         onClose={() => setIsQROpen(false)}
-        serverUrl={serverUrl}
+        detectedIps={detectedIps}
         roomId={roomId}
       />
 

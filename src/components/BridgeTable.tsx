@@ -5,7 +5,7 @@ import { BiddingBox } from './BiddingBox';
 import { BiddingTray } from './BiddingTray';
 import { isCardLegal } from '../logic/play';
 import { formatContractString } from '../logic/scoring';
-import { Users, AlertCircle, Play, RotateCcw } from 'lucide-react';
+import { Users, AlertCircle, Play, RotateCcw, QrCode } from 'lucide-react';
 
 interface BridgeTableProps {
   state: RoomState;
@@ -17,6 +17,7 @@ interface BridgeTableProps {
   onPlayCard: (cardId: string) => void;
   onNextBoard: () => void;
   onResetRoom: () => void;
+  onOpenQR: () => void;
 }
 
 const SEAT_NAMES: Record<Seat, string> = {
@@ -35,6 +36,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   onMakeBid,
   onPlayCard,
   onNextBoard,
+  onOpenQR,
 }) => {
   const {
     phase,
@@ -113,6 +115,16 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
                 );
               })}
             </div>
+
+            {/* Prominent QR Code invite button in Lobby */}
+            <button
+              type="button"
+              onClick={onOpenQR}
+              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+            >
+              <QrCode className="w-5 h-5" />
+              Pokaż kod QR dla współgraczy (Dołącz do pokoju {state.roomId})
+            </button>
 
             {allSeatsOccupied ? (
               <button
