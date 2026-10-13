@@ -65,12 +65,20 @@ export interface ScoreRecord {
 
 export type GamePhase = 'LOBBY' | 'BIDDING' | 'PLAYING' | 'BOARD_RESULT';
 
+export interface ConnectedPlayer {
+  id: string;
+  name: string;
+  seat: Seat | null;
+}
+
 export interface RoomState {
   roomId: string;
   boardNumber: number;
   dealer: Seat;
   vulnerability: Vulnerability;
   phase: GamePhase;
+  connectedCount?: number;
+  connectedPlayers?: ConnectedPlayer[];
   seats: {
     N: { id: string; name: string; connected: boolean } | null;
     E: { id: string; name: string; connected: boolean } | null;

@@ -15,24 +15,22 @@ export const QRModal: React.FC<QRModalProps> = ({
   detectedIps,
   roomId,
 }) => {
-  // Determine default host:
-  // In airplane mode, Android hotspot is always 192.168.43.1:8080
-  const initialHost = detectedIps.length > 0 ? `${detectedIps[0]}:8080` : '192.168.43.1:8080';
-  const [selectedHost, setSelectedHost] = useState<string>(initialHost);
+  // Mode: 'hotspot' (Offline z telefonu) or 'online' (Firebase)
+  const isWebHosted = window.location.hostname.includes('web.app') || window.location.hostname.includes('firebaseapp');
+  const [mode, setMode] = useState<'hotspot' | 'online'>(isWebHosted ? 'online' : 'hotspot');
   const [qrDataUrl, setQrDataUrl] = useState<string>('');
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
-    if (detectedIps.length > 0 && selectedHost === '192.168.43.1:8080' && !detectedIps.includes('192.168.43.1')) {
-      setSelectedHost(`${detectedIps[0]}:8080`);
-    }
-  }, [detectedIps]);
+  // Single phone IP: either detected from device or default hotspot IP 192.168.43.1
+  const phoneIp = detectedIps.length > 0 ? detectedIps[0] : '192.168.43.1';
+  const hotspotUrl = `http://${phoneIp}:8080?room=${roomId}`;
+  const onlineUrl = `https://anywherebridge.web.app?room=${roomId}`;
 
-  const fullUrl = `http://${selectedHost}?room=${roomId}`;
+  const currentUrl = mode === 'hotspot' ? hotspotUrl : onlineUrl;
 
   useEffect(() => {
-    if (isOpen && fullUrl) {
-      QRCode.toDataURL(fullUrl, {
+    if (isOpen && currentUrl) {
+      QRCode.toDataURL(currentUrl, {
         width: 256,
         margin: 2,
         color: {
@@ -43,12 +41,12 @@ export const QRModal: React.FC<QRModalProps> = ({
         .then(url => setQrDataUrl(url))
         .catch(err => console.error('QR code error', err));
     }
-  }, [isOpen, fullUrl]);
+  }, [isOpen, currentUrl]);
 
   if (!isOpen) return null;
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(fullUrl);
+    navigator.clipboard.writeText(currentUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -64,7 +62,7 @@ export const QRModal: React.FC<QRModalProps> = ({
           <X className="w-5 h-5" />
         </button>
 
-        <div className="flex items-center gap-2.5 mb-2">
+        <div className="flex items-center gap-2.5 mb-3">
           <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg">
             <QrCode className="w-6 h-6" />
           </div>
@@ -74,8 +72,37 @@ export const QRModal: React.FC<QRModalProps> = ({
           </div>
         </div>
 
+        {/* 2 Clean Modes: Hotspot vs Online */}
+        <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 border border-slate-800 rounded-xl mb-3">
+          <button
+            type="button"
+            onClick={() => setMode('hotspot')}
+            className={`py-2 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              mode === 'hotspot'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Plane className="w-4 h-4" />
+            <span>Hotspot z telefonu</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setMode('online')}
+            className={`py-2 px-2.5 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 ${
+              mode === 'online'
+                ? 'bg-amber-500 text-slate-950 shadow-md'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Globe className="w-4 h-4" />
+            <span>Wersja online</span>
+          </button>
+        </div>
+
         {/* QR Code Container */}
-        <div className="bg-white p-3 rounded-2xl mx-auto my-2 shadow-2xl border-2 border-slate-300">
+        <div className="bg-white p-3 rounded-2xl mx-auto my-1 shadow-2xl border-2 border-slate-300">
           {qrDataUrl ? (
             <img src={qrDataUrl} alt="QR Code" className="w-52 h-52 sm:w-60 sm:h-60" />
           ) : (
@@ -85,46 +112,9 @@ export const QRModal: React.FC<QRModalProps> = ({
           )}
         </div>
 
-        {/* IP Presets Selector */}
-        <div className="space-y-1.5 my-2">
-          <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">
-            Wybierz adres Hotspotu dla graczy:
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              onClick={() => setSelectedHost('192.168.43.1:8080')}
-              className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition flex items-center gap-1 ${
-                selectedHost === '192.168.43.1:8080'
-                  ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 ring-1 ring-emerald-400'
-                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-750'
-              }`}
-            >
-              <Plane className="w-3 h-3" />
-              <span>Samolot (192.168.43.1)</span>
-            </button>
-
-            {detectedIps.filter(ip => ip !== '192.168.43.1').map(ip => (
-              <button
-                key={ip}
-                type="button"
-                onClick={() => setSelectedHost(`${ip}:8080`)}
-                className={`px-2.5 py-1 text-xs rounded-lg font-bold border transition flex items-center gap-1 ${
-                  selectedHost === `${ip}:8080`
-                    ? 'bg-emerald-500/20 border-emerald-400 text-emerald-300 ring-1 ring-emerald-400'
-                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-750'
-                }`}
-              >
-                <Globe className="w-3 h-3" />
-                <span>Wi-Fi ({ip})</span>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* URL Display */}
-        <div className="flex items-center gap-2 p-2 bg-slate-950/80 border border-slate-800 rounded-lg mb-3">
-          <span className="text-xs text-emerald-400 font-mono truncate flex-1 font-bold">{fullUrl}</span>
+        <div className="flex items-center gap-2 p-2 bg-slate-950/80 border border-slate-800 rounded-lg my-3">
+          <span className="text-xs text-emerald-400 font-mono truncate flex-1 font-bold">{currentUrl}</span>
           <button
             type="button"
             onClick={handleCopy}
@@ -135,24 +125,38 @@ export const QRModal: React.FC<QRModalProps> = ({
           </button>
         </div>
 
-        {/* Instructions */}
+        {/* Instructions based on mode */}
         <div className="bg-slate-800/40 border border-slate-700/60 rounded-xl p-3 text-xs text-slate-300 space-y-1.5">
-          <div className="flex items-center gap-1.5 font-bold text-amber-400 mb-0.5">
-            <Wifi className="w-4 h-4" />
-            <span>Instrukcja dla 3 współgraczy:</span>
-          </div>
-          <p>1. Włącz Hotspot w telefonie (dane komórkowe wyłączone).</p>
-          <p>2. Znajomi łączą się z Wi-Fi Twojego telefonu.</p>
-          <p>3. Skanują ten kod QR aparatem iPhone/Android.</p>
-          <p>4. Gra ładuje się w przeglądarce bez instalacji aplikacji!</p>
+          {mode === 'hotspot' ? (
+            <>
+              <div className="flex items-center gap-1.5 font-bold text-emerald-400 mb-0.5">
+                <Wifi className="w-4 h-4" />
+                <span>Gra offline na pokładzie samolotu:</span>
+              </div>
+              <p>1. Włącz <strong>Hotspot osobisty</strong> w telefonie (dane komórkowe wyłączone).</p>
+              <p>2. Znajomi łączą się z siecią Wi-Fi Twojego telefonu.</p>
+              <p>3. Skanują ten kod QR aparatem iPhone/Android.</p>
+              <p>4. Gra ładuje się w ich przeglądarce bez instalowania czegokolwiek!</p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-1.5 font-bold text-amber-400 mb-0.5">
+                <Globe className="w-4 h-4" />
+                <span>Gra przez Internet (Firebase):</span>
+              </div>
+              <p>1. Wszyscy gracze muszą mieć połączenie z Internetem.</p>
+              <p>2. Znajomi skanują ten kod QR lub otwierają link w przeglądarce.</p>
+              <p>3. Dołączają do tego samego pokoju <strong>{roomId}</strong>.</p>
+            </>
+          )}
         </div>
 
         <button
           type="button"
           onClick={onClose}
-          className="mt-3 w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition shadow"
+          className="mt-3.5 w-full py-2.5 bg-slate-800 hover:bg-slate-750 text-white font-bold text-sm rounded-xl transition shadow"
         >
-          Gotowe, wróć do stołu
+          Zamknij
         </button>
       </div>
     </div>

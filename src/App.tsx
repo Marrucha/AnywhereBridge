@@ -4,6 +4,7 @@ import { BridgeTable } from './components/BridgeTable';
 import { ScoreModal } from './components/ScoreModal';
 import { QRModal } from './components/QRModal';
 import { ConnectionModal } from './components/ConnectionModal';
+import { PlayersModal } from './components/PlayersModal';
 import {
   getStoredScores,
   saveScoreRecord,
@@ -14,7 +15,7 @@ import {
   getStoredSeat,
   saveStoredSeat,
 } from './storage/scores';
-import { Plane, Trophy, QrCode, RotateCcw, Wifi, WifiOff, Settings } from 'lucide-react';
+import { Plane, Trophy, QrCode, RotateCcw, Wifi, WifiOff, Settings, Users } from 'lucide-react';
 
 const DEFAULT_ROOM_ID = 'air-737';
 
@@ -59,6 +60,7 @@ export const App: React.FC = () => {
   const [isScoreOpen, setIsScoreOpen] = useState(false);
   const [isQROpen, setIsQROpen] = useState(false);
   const [isConnectionOpen, setIsConnectionOpen] = useState(false);
+  const [isPlayersOpen, setIsPlayersOpen] = useState(false);
   const [localScores, setLocalScores] = useState<ScoreRecord[]>(() => getStoredScores());
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -295,6 +297,24 @@ export const App: React.FC = () => {
             )}
           </button>
 
+          {/* Players in room counter button */}
+          {roomState && (
+            <button
+              type="button"
+              onClick={() => setIsPlayersOpen(true)}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-emerald-500/50 rounded-lg text-xs font-bold transition shadow"
+              title="Zobacz listę graczy w pokoju"
+            >
+              <Users className="w-4 h-4 text-emerald-400" />
+              <span>
+                {roomState.connectedCount !== undefined
+                  ? roomState.connectedCount
+                  : Math.max((roomState.connectedPlayers || []).length, Object.values(roomState.seats).filter(Boolean).length)}
+              </span>
+              <span className="hidden md:inline text-slate-400 font-normal">w pokoju</span>
+            </button>
+          )}
+
           {/* Scorepad button */}
           <button
             type="button"
@@ -411,6 +431,13 @@ export const App: React.FC = () => {
         currentServer={serverAddress}
         currentRoom={roomId}
         onSave={handleUpdateConnection}
+      />
+
+      <PlayersModal
+        isOpen={isPlayersOpen}
+        onClose={() => setIsPlayersOpen(false)}
+        state={roomState}
+        onOpenQR={() => setIsQROpen(true)}
       />
     </div>
   );

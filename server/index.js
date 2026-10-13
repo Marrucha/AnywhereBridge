@@ -362,6 +362,27 @@ function broadcastRoom(roomId) {
   const room = rooms.get(roomId);
   if (!room) return;
 
+  // Collect connected players for this room (seated and unseated)
+  const connectedPlayersMap = new Map();
+  let unassignedCount = 0;
+  for (const [sWs, sInfo] of clientSockets.entries()) {
+    if (sInfo.roomId === roomId && sWs.readyState === WebSocket.OPEN) {
+      if (sInfo.playerId) {
+        if (!connectedPlayersMap.has(sInfo.playerId)) {
+          connectedPlayersMap.set(sInfo.playerId, {
+            id: sInfo.playerId,
+            name: sInfo.playerName || 'Gracz',
+            seat: sInfo.seat || null,
+          });
+        }
+      } else {
+        unassignedCount++;
+      }
+    }
+  }
+  const connectedPlayers = Array.from(connectedPlayersMap.values());
+  const connectedCount = connectedPlayers.length + unassignedCount;
+
   wss.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
       const clientInfo = clientSockets.get(client);
@@ -380,6 +401,8 @@ function broadcastRoom(roomId) {
           dealer: room.dealer,
           vulnerability: room.vulnerability,
           phase: room.phase,
+          connectedCount,
+          connectedPlayers,
           seats: room.seats,
           myHand,
           dummyHand,
@@ -422,12 +445,12 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     const info = clientSockets.get(ws);
     if (info) {
+      clientSockets.delete(ws);
       const room = rooms.get(info.roomId);
       if (room && info.seat && room.seats[info.seat]?.id === info.playerId) {
         room.seats[info.seat].connected = false;
-        broadcastRoom(info.roomId);
       }
-      clientSockets.delete(ws);
+      broadcastRoom(info.roomId);
     }
   });
 });

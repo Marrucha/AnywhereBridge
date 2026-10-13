@@ -56,6 +56,8 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
     lastResult,
     dealer,
     vulnerability,
+    connectedCount,
+    connectedPlayers = [],
   } = state;
 
   const isMyTurn = mySeat !== null && currentTurn === mySeat;
@@ -70,19 +72,85 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
     return currentTrick.cards.find(c => c.playedBy === seat);
   };
 
-  const allSeatsOccupied = seats.N && seats.E && seats.S && seats.W;
+  const seatedCount = (['N', 'E', 'S', 'W'] as Seat[]).filter(s => seats[s] !== null).length;
+  const allSeatsOccupied = seatedCount === 4;
+  const totalPlayersInRoom = connectedCount !== undefined ? connectedCount : Math.max(connectedPlayers.length, seatedCount);
+  const unseatedList = connectedPlayers.filter(p => !p.seat);
 
   return (
     <div className="relative w-full h-full flex flex-col justify-between p-2 sm:p-4 select-none overflow-hidden">
       {/* LOBBY OVERLAY / PHASE */}
       {phase === 'LOBBY' && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-          <div className="bg-slate-900 border-2 border-amber-500/50 rounded-2xl p-5 sm:p-7 max-w-lg w-full text-center shadow-2xl space-y-4">
+        <div className="absolute inset-0 z-30 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-slate-900 border-2 border-amber-500/50 rounded-2xl p-4 sm:p-6 max-w-lg w-full text-center shadow-2xl space-y-3.5 max-h-[92vh] overflow-y-auto">
             <div className="space-y-1">
               <h2 className="text-xl sm:text-2xl font-black text-amber-400">Poczekalnia przy stole (Lobby)</h2>
               <p className="text-xs sm:text-sm text-slate-300">
-                Wybierz pozycję przy stole. Do rozpoczęcia gry potrzebnych jest 4 graczy.
+                Do rozpoczęcia gry potrzebnych jest 4 graczy. Każdy musi wybrać swoje krzesło.
               </p>
+            </div>
+
+            {/* CONNECTED PLAYERS REAL-TIME STATUS BOX */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 text-left space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-slate-200">
+                  <Users className="w-4 h-4 text-emerald-400" />
+                  <span>Dołączyli do gry:</span>
+                  <span className="text-emerald-400 font-mono text-sm font-black">
+                    {totalPlayersInRoom}
+                  </span>
+                </div>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  {seatedCount}/4 ma wybrane miejsce
+                </span>
+              </div>
+
+              {/* Badges of connected players */}
+              <div className="flex flex-wrap gap-1.5">
+                {connectedPlayers.length > 0 ? (
+                  connectedPlayers.map((player) => {
+                    const hasSeat = player.seat !== null;
+                    const seatLabel = player.seat ? SEAT_NAMES[player.seat]?.split(' ')[0] : null;
+                    return (
+                      <span
+                        key={player.id}
+                        className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border transition-all ${
+                          hasSeat
+                            ? 'bg-emerald-950/50 border-emerald-500/40 text-emerald-300'
+                            : 'bg-amber-950/60 border-amber-500/60 text-amber-200 animate-pulse'
+                        }`}
+                      >
+                        <span
+                          className={`w-2 h-2 rounded-full ${
+                            hasSeat ? 'bg-emerald-400' : 'bg-amber-400 ring-2 ring-amber-400/30'
+                          }`}
+                        />
+                        <strong className="font-semibold">{player.name}</strong>
+                        <span className="text-[10px] opacity-80">
+                          {hasSeat ? `(${seatLabel})` : '⏳ wybiera miejsce'}
+                        </span>
+                      </span>
+                    );
+                  })
+                ) : (
+                  <span className="text-xs text-slate-400 italic">Oczekiwanie na pierwsze połączenie...</span>
+                )}
+              </div>
+
+              {/* Informational tip if players joined but haven't chosen a seat */}
+              {unseatedList.length > 0 && (
+                <div className="bg-amber-950/40 border border-amber-800/40 rounded-lg p-2 text-[11px] text-amber-200 flex items-start gap-1.5">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-400 mt-0.5" />
+                  <span>
+                    <strong>
+                      {unseatedList.length === 1
+                        ? '1 gracz wszedł do gry'
+                        : `${unseatedList.length} graczy weszło do gry`}
+                    </strong>
+                    , ale jeszcze nie kliknął wolnego krzesła poniżej! Poproś o wybranie pozycji (Północ, Wschód, Południe, Zachód).
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Seat selection grid */}

@@ -333,8 +333,8 @@ public class LocalAirplaneServer extends NanoWSD {
                 try {
                     seats.get(seat).put("connected", false);
                 } catch (Exception ignored) {}
-                broadcastState();
             }
+            broadcastState();
             Log.d(TAG, "WebSocket closed. Total sockets: " + allSockets.size());
         }
 
@@ -737,6 +737,34 @@ public class LocalAirplaneServer extends NanoWSD {
                 s.put("dealer", dealer);
                 s.put("vulnerability", vulnerability);
                 s.put("phase", phase);
+
+                // Connected players list & count (seated and unseated)
+                JSONArray connArr = new JSONArray();
+                Map<String, JSONObject> activePlayers = new LinkedHashMap<>();
+                int unassignedCount = 0;
+
+                for (BridgeWebSocket wsItem : allSockets) {
+                    if (!wsItem.isOpen()) continue;
+                    if (wsItem.playerId != null) {
+                        if (!activePlayers.containsKey(wsItem.playerId)) {
+                            JSONObject pObj = new JSONObject();
+                            pObj.put("id", wsItem.playerId);
+                            pObj.put("name", wsItem.playerName != null && !wsItem.playerName.isEmpty() ? wsItem.playerName : "Gracz");
+                            pObj.put("seat", wsItem.seat != null ? wsItem.seat : JSONObject.NULL);
+                            activePlayers.put(wsItem.playerId, pObj);
+                        }
+                    } else {
+                        unassignedCount++;
+                    }
+                }
+
+                for (JSONObject pObj : activePlayers.values()) {
+                    connArr.put(pObj);
+                }
+
+                int totalConnected = activePlayers.size() + unassignedCount;
+                s.put("connectedCount", totalConnected);
+                s.put("connectedPlayers", connArr);
 
                 JSONObject seatsObj = new JSONObject();
                 for (String k : SEATS) {
