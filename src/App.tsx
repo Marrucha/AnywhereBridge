@@ -62,7 +62,11 @@ export const App: React.FC = () => {
       const loc = window.location;
       let targetHost = serverAddress;
       if (!targetHost) {
-        targetHost = loc.port === '3000' ? `${loc.hostname}:8080` : loc.host;
+        if (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1') {
+          targetHost = `${loc.hostname}:8080`;
+        } else {
+          targetHost = loc.port === '3000' ? `${loc.hostname}:8080` : loc.host;
+        }
       }
       const protocol = loc.protocol === 'https:' && !targetHost.startsWith('192.168.') && !targetHost.startsWith('10.') && !targetHost.startsWith('localhost') ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${targetHost}`;

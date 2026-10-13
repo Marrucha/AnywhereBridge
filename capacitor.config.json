@@ -1,0 +1,9 @@
+{
+  "appId": "com.marrucha.anywherebridge",
+  "appName": "anywhereBridge",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "cleartext": true
+  }
+}

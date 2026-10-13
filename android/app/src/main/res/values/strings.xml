@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">anywhereBridge</string>
+    <string name="title_activity_main">anywhereBridge</string>
+    <string name="package_name">com.marrucha.anywherebridge</string>
+    <string name="custom_url_scheme">com.marrucha.anywherebridge</string>
+</resources>
