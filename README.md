@@ -51,17 +51,24 @@ npm run server
 npm run dev
 ```
 
+### 3. Aplikacja Android (APK) dla Hosta w Samolocie:
+1. Przejdź do zakładki **[Actions](https://github.com/Marrucha/AnywhereBridge/actions)** w repozytorium GitHub.
+2. Wybierz ostatni workflow **Build Android APK** i pobierz artefakt **`AnywhereBridge-Debug-APK`**.
+3. Zainstaluj plik `.apk` na telefonie gospodarza (Android).
+4. Telefon gospodarza po uruchomieniu aplikacji sam stawia w tle serwer NanoHTTPD/WebSocket na porcie `8080` i staje się w 100% autonomicznym serwerem pokładowym (nie potrzebujesz komputera w samolocie!).
+
 ---
 
 ## ✈️ Instrukcja gry na pokładzie samolotu
 
-1. **Gospodarz:**
-   - Włącz w telefonie **Hotspot osobisty** (dane komórkowe wyłączone).
-   - Otwórz w przeglądarce `anywhereBridge`.
+1. **Gospodarz (Telefon z aplikacją Android APK lub laptopem):**
+   - Włącz w telefonie **Hotspot osobisty** (dane komórkowe wyłączone, tryb samolotowy).
+   - Otwórz zainstalowaną aplikację `anywhereBridge`.
    - Kliknij ikonę **„Połącz” (QR)** w prawym górnym rogu.
-2. **Trzej współgracze:**
-   - Łączą się z Wi-Fi hotspotu telefonu gospodarza.
-   - Skanują kod QR aparatem na swoim iPhone lub Androidzie.
+2. **Trzej współgracze (iPhone lub Android):**
+   - Łączą się z siecią Wi-Fi hotspotu telefonu gospodarza.
+   - Skanują kod QR aparatem swojego telefonu (otwiera się Safari lub Chrome).
    - Każdy wybiera jedno z 4 wolnych miejsc przy stole (N, E, S, W).
 3. **Gdy 4 miejsca są zajęte:**
    - Gospodarz klika **„Rozpocznij Rozdanie #1”**.
+
