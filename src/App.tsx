@@ -425,7 +425,7 @@ export const App: React.FC = () => {
             onNextBoard={handleNextBoard}
             onResetRoom={handleResetRoom}
             onOpenQR={() => setIsQROpen(true)}
-            onStartBotGame={() => startBotGame(mySeat || 'S', 1)}
+            onStartBotGame={() => startBotGame(mySeat || 'S', 4)}
             isBotGame={isBotGame}
             ddsResult={ddsResult}
             ddsLoading={ddsLoading}
@@ -434,7 +434,7 @@ export const App: React.FC = () => {
           <ConnectingScreen
             roomId={roomId}
             activeWsUrl={activeWsUrl}
-            onStartBotGame={() => startBotGame(mySeat || 'S', 1)}
+            onStartBotGame={() => startBotGame(mySeat || 'S', 4)}
             onUpdateConnection={handleUpdateConnection}
             onOpenConnectionModal={() => setIsConnectionOpen(true)}
           />

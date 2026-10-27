@@ -261,7 +261,32 @@ export function getBotNextAction(
   if (state.phase === 'BIDDING') {
     const bidder = state.currentBidder;
     if (bidder && bidder !== mySeat) {
-      // Testowo boty zawsze pasują
+      if (bidder === 'W') {
+        const hasWBid = state.bids.some(b => b.bidder === 'W' && b.type === 'BID');
+        if (!hasWBid) {
+          // Bot W licytuje i zostaje rozgrywającym (dobiera swój najlepszy kolor lub 3BA)
+          const wHand = fullHands['W'] || [];
+          const spadeCount = wHand.filter(c => c.suit === 'S').length;
+          const heartCount = wHand.filter(c => c.suit === 'H').length;
+
+          let level = 3;
+          let suit: TrumpSuit = 'NT';
+
+          if (spadeCount >= 4) {
+            suit = 'S';
+            level = 4;
+          } else if (heartCount >= 4) {
+            suit = 'H';
+            level = 4;
+          } else {
+            suit = 'NT';
+            level = 3;
+          }
+
+          return { type: 'bid', seat: 'W', bid: { type: 'BID', level, suit } };
+        }
+      }
+      // Pozostałe boty (N, E) oraz W po zalicytowaniu pasują
       return { type: 'bid', seat: bidder, bid: { type: 'PASS' } };
     }
     return null;
