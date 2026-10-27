@@ -5,6 +5,7 @@ import { BiddingBox } from './BiddingBox';
 import { BiddingTray } from './BiddingTray';
 import { DdsView } from './DdsView';
 import { DummyHandView } from './DummyHandView';
+import { SideDummyHandView } from './SideDummyHandView';
 import { PlayerHandView } from './PlayerHandView';
 import { LobbyOverlay } from './LobbyOverlay';
 import { DdsTableResult } from '../logic/dds';
@@ -243,7 +244,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           </div>
         )}
 
-        {/* DUMMY CARDS (If Dummy is North) */}
+        {/* DUMMY CARDS (ONLY IF DUMMY IS NORTH) */}
         {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat === 'N' && dummyHand && dummyHand.length > 0 && (
           <div className="w-full max-w-xl mx-auto px-1">
             <DummyHandView
@@ -260,23 +261,6 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           </div>
         )}
       </div>
-
-      {/* DUMMY CARDS (If Dummy is East or West) - Dedicated exposed board */}
-      {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat && dummySeat !== 'N' && dummyHand && dummyHand.length > 0 && (
-        <div className="w-full max-w-xl mx-auto px-1">
-          <DummyHandView
-            dummySeat={dummySeat}
-            dummyHand={dummyHand}
-            canIPlayDummy={canIPlayDummy}
-            leadCardSuit={leadCardSuit}
-            onPlayCard={onPlayCard}
-            trumpSuit={contract ? contract.suit : undefined}
-            declarerSeat={declarerSeat}
-            mySeat={mySeat}
-            seatName={seats[dummySeat]?.name}
-          />
-        </div>
-      )}
 
       {/* PROMINENT TRICK SCOREBOARD BAR */}
       {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && contract && (
@@ -321,22 +305,34 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
       {/* MIDDLE SECTION: WEST, FELT TABLE (TRICK / AUCTION), EAST */}
       <div className="flex-1 min-h-0 flex items-center justify-between my-0.5 sm:my-1 relative overflow-hidden">
         {/* WEST SEAT */}
-        <div className="w-14 sm:w-20 flex flex-col items-center justify-center shrink-0">
-          <div className={`px-2 py-0.5 rounded-lg text-center text-[11px] sm:text-xs font-bold border transition ${
-            currentTurn === 'W' || currentBidder === 'W'
-              ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-              : isEWVul
-              ? 'bg-rose-950/90 text-rose-200 border-rose-500'
-              : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
-          }`}>
-            W: {seats.W ? seats.W.name : 'Pusto'}
-            {isEWVul ? ' (Po)' : ' (Przed)'}
-            {declarerSeat === 'W' && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
-            {dummySeat === 'W' && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️</span>}
-            {phase === 'PLAYING' && declarerSeat !== 'W' && dummySeat !== 'W' && (
-              <span className="block text-[8px] text-slate-400">Obrońca</span>
-            )}
-          </div>
+        <div className="flex flex-col items-center justify-center shrink-0">
+          {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat === 'W' && dummyHand && dummyHand.length > 0 ? (
+            <SideDummyHandView
+              dummySeat="W"
+              dummyHand={dummyHand}
+              trumpSuit={contract ? contract.suit : undefined}
+              canIPlayDummy={canIPlayDummy}
+              leadCardSuit={leadCardSuit}
+              onPlayCard={onPlayCard}
+              seatName={seats.W?.name}
+            />
+          ) : (
+            <div className={`w-14 sm:w-20 px-2 py-0.5 rounded-lg text-center text-[11px] sm:text-xs font-bold border transition ${
+              currentTurn === 'W' || currentBidder === 'W'
+                ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
+                : isEWVul
+                ? 'bg-rose-950/90 text-rose-200 border-rose-500'
+                : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
+            }`}>
+              W: {seats.W ? seats.W.name : 'Pusto'}
+              {isEWVul ? ' (Po)' : ' (Przed)'}
+              {declarerSeat === 'W' && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
+              {dummySeat === 'W' && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️</span>}
+              {phase === 'PLAYING' && declarerSeat !== 'W' && dummySeat !== 'W' && (
+                <span className="block text-[8px] text-slate-400">Obrońca</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* FELT CENTER */}
@@ -414,22 +410,34 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         </div>
 
         {/* EAST SEAT */}
-        <div className="w-14 sm:w-20 flex flex-col items-center justify-center shrink-0">
-          <div className={`px-2 py-0.5 rounded-lg text-center text-[11px] sm:text-xs font-bold border transition ${
-            currentTurn === 'E' || currentBidder === 'E'
-              ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-              : isEWVul
-              ? 'bg-rose-950/90 text-rose-200 border-rose-500'
-              : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
-          }`}>
-            E: {seats.E ? seats.E.name : 'Pusto'}
-            {isEWVul ? ' (Po)' : ' (Przed)'}
-            {declarerSeat === 'E' && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
-            {dummySeat === 'E' && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️</span>}
-            {phase === 'PLAYING' && declarerSeat !== 'E' && dummySeat !== 'E' && (
-              <span className="block text-[8px] text-slate-400">Obrońca</span>
-            )}
-          </div>
+        <div className="flex flex-col items-center justify-center shrink-0">
+          {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat === 'E' && dummyHand && dummyHand.length > 0 ? (
+            <SideDummyHandView
+              dummySeat="E"
+              dummyHand={dummyHand}
+              trumpSuit={contract ? contract.suit : undefined}
+              canIPlayDummy={canIPlayDummy}
+              leadCardSuit={leadCardSuit}
+              onPlayCard={onPlayCard}
+              seatName={seats.E?.name}
+            />
+          ) : (
+            <div className={`w-14 sm:w-20 px-2 py-0.5 rounded-lg text-center text-[11px] sm:text-xs font-bold border transition ${
+              currentTurn === 'E' || currentBidder === 'E'
+                ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
+                : isEWVul
+                ? 'bg-rose-950/90 text-rose-200 border-rose-500'
+                : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
+            }`}>
+              E: {seats.E ? seats.E.name : 'Pusto'}
+              {isEWVul ? ' (Po)' : ' (Przed)'}
+              {declarerSeat === 'E' && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
+              {dummySeat === 'E' && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️</span>}
+              {phase === 'PLAYING' && declarerSeat !== 'E' && dummySeat !== 'E' && (
+                <span className="block text-[8px] text-slate-400">Obrońca</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
