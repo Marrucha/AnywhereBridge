@@ -86,6 +86,22 @@ export const App: React.FC = () => {
     setLocalScores(updated);
   });
 
+  const isBotGameRef = useRef(isBotGame);
+  useEffect(() => {
+    isBotGameRef.current = isBotGame;
+    if (isBotGame) {
+      if (reconnectTimeoutRef.current) {
+        clearTimeout(reconnectTimeoutRef.current);
+        reconnectTimeoutRef.current = null;
+      }
+      if (wsRef.current) {
+        try { wsRef.current.close(); } catch (_) {}
+        wsRef.current = null;
+      }
+      setConnected(false);
+    }
+  }, [isBotGame]);
+
   const effectiveState = isBotGame && localSession ? localSession.state : roomState;
   const effectiveMySeat = isBotGame ? (mySeat || 'S') : mySeat;
 
@@ -109,9 +125,10 @@ export const App: React.FC = () => {
     fetchInfo();
   }, []);
 
-  // Connect to WebSocket
+  // Connect to WebSocket (only when in multiplayer mode)
   useEffect(() => {
     const connectWs = () => {
+      if (isBotGameRef.current) return;
       const loc = window.location;
       let targetHost = serverAddress;
       if (!targetHost) {
@@ -135,58 +152,61 @@ export const App: React.FC = () => {
 
         ws.onopen = () => {
           setConnected(true);
-        // Send join message
-        const joinMsg: ClientMessage = {
-          type: 'join',
-          roomId,
-          playerId,
-          playerName,
-        };
-        ws.send(JSON.stringify(joinMsg));
+          // Send join message
+          const joinMsg: ClientMessage = {
+            type: 'join',
+            roomId,
+            playerId,
+            playerName,
+          };
+          ws.send(JSON.stringify(joinMsg));
 
-        // Auto-resume seat if previously held
-        const prevSeat = getStoredSeat();
-        if (prevSeat) {
-          ws.send(JSON.stringify({ type: 'take_seat', seat: prevSeat }));
-        }
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const msg: ServerMessage = JSON.parse(event.data);
-          if (msg.type === 'state_update') {
-            setRoomState(msg.state);
-            setMySeat(msg.yourSeat);
-            saveStoredSeat(msg.yourSeat);
-
-            // Sync score record to localStorage if fresh result
-            if (msg.state.lastResult) {
-              const updated = saveScoreRecord(msg.state.lastResult);
-              setLocalScores(updated);
-            }
-          } else if (msg.type === 'room_reset') {
-            setMySeat(null);
-            saveStoredSeat(null);
+          // Auto-resume seat if previously held
+          const prevSeat = getStoredSeat();
+          if (prevSeat) {
+            ws.send(JSON.stringify({ type: 'take_seat', seat: prevSeat }));
           }
-        } catch (e) {
-          console.error('Error handling WS message:', e);
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const msg: ServerMessage = JSON.parse(event.data);
+            if (msg.type === 'state_update') {
+              setRoomState(msg.state);
+              setMySeat(msg.yourSeat);
+              saveStoredSeat(msg.yourSeat);
+
+              // Sync score record to localStorage if fresh result
+              if (msg.state.lastResult) {
+                const updated = saveScoreRecord(msg.state.lastResult);
+                setLocalScores(updated);
+              }
+            } else if (msg.type === 'room_reset') {
+              setMySeat(null);
+              saveStoredSeat(null);
+            }
+          } catch (e) {
+            console.error('Error handling WS message:', e);
+          }
+        };
+
+        ws.onclose = () => {
+          setConnected(false);
+          wsRef.current = null;
+          // Reconnect attempt after 4s (only if still in multiplayer mode)
+          if (!isBotGameRef.current) {
+            reconnectTimeoutRef.current = setTimeout(connectWs, 4000);
+          }
+        };
+
+        ws.onerror = () => {
+          // Quietly close without alarming console spam when multiplayer host is offline
+          try { ws.close(); } catch (_) {}
+        };
+      } catch (_) {
+        if (!isBotGameRef.current) {
+          reconnectTimeoutRef.current = setTimeout(connectWs, 4000);
         }
-      };
-
-      ws.onclose = () => {
-        setConnected(false);
-        wsRef.current = null;
-        // Reconnect attempt after 2s
-        reconnectTimeoutRef.current = setTimeout(connectWs, 2000);
-      };
-
-      ws.onerror = (err) => {
-        console.error('WebSocket error:', err);
-        ws.close();
-      };
-      } catch (err) {
-        console.error('Failed to initialize WebSocket:', err);
-        reconnectTimeoutRef.current = setTimeout(connectWs, 3000);
       }
     };
 
