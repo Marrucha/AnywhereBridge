@@ -79,8 +79,8 @@ export const PlayerHandView: React.FC<PlayerHandViewProps> = ({
         )}
       </div>
 
-      {/* Cards grouped by suit with overlapping cards - exactly like Dummy */}
-      <div className="flex items-center justify-center gap-1 sm:gap-2.5 overflow-x-auto scrollbar-none py-0.5 px-0.5">
+      {/* Cards grouped by suit with compact overlapping cards */}
+      <div className="flex items-center justify-center gap-0.5 sm:gap-2 overflow-x-hidden sm:overflow-x-auto py-0.5 px-0.5">
         {suitsOrder.map(suit => {
           const suitCards = cardsBySuit[suit];
           if (suitCards.length === 0) return null;
@@ -88,14 +88,14 @@ export const PlayerHandView: React.FC<PlayerHandViewProps> = ({
           return (
             <div
               key={suit}
-              className="flex items-center bg-slate-950/80 rounded-lg px-1 py-0.5 border border-slate-800 shrink-0"
+              className="flex items-center bg-slate-950/80 rounded-md sm:rounded-lg px-0.5 sm:px-1 py-0.5 border border-slate-800 shrink-0"
             >
               {/* Suit marker */}
-              <span className={`text-xs sm:text-sm font-black mr-1 ${SUIT_COLORS[suit]}`}>
+              <span className={`text-[10px] sm:text-xs font-black mr-0.5 shrink-0 ${SUIT_COLORS[suit]}`}>
                 {SUIT_SYMBOLS[suit]}
               </span>
 
-              {/* Overlapped cards within suit */}
+              {/* Overlapped cards within suit (fits in < 300px on mobile) */}
               <div className="flex items-center">
                 {suitCards.map((card, idx) => {
                   const isPlayable = isMyTurn && phase === 'PLAYING' && isCardLegal(card, hand, leadCardSuit);
@@ -103,7 +103,7 @@ export const PlayerHandView: React.FC<PlayerHandViewProps> = ({
                     <div
                       key={card.id}
                       className={`transition-transform ${
-                        idx > 0 ? '-ml-5 sm:-ml-6' : ''
+                        idx > 0 ? '-ml-[24px] sm:-ml-7' : ''
                       } ${isPlayable ? 'hover:-translate-y-1.5 z-20' : 'z-10'}`}
                     >
                       <CardView

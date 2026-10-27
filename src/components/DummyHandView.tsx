@@ -91,7 +91,7 @@ export const DummyHandView: React.FC<DummyHandViewProps> = ({
       </div>
 
       {/* Cards grouped by suit - single horizontal row, cleanly fitting on screen */}
-      <div className="flex items-center justify-center gap-1 sm:gap-2.5 overflow-x-auto scrollbar-none py-0.5 px-0.5">
+      <div className="flex items-center justify-center gap-0.5 sm:gap-2 overflow-x-hidden sm:overflow-x-auto py-0.5 px-0.5">
         {suitsOrder.map(suit => {
           const suitCards = cardsBySuit[suit];
           if (suitCards.length === 0) return null;
@@ -99,10 +99,10 @@ export const DummyHandView: React.FC<DummyHandViewProps> = ({
           return (
             <div
               key={suit}
-              className="flex items-center bg-slate-900/80 rounded-lg px-1 py-0.5 border border-slate-700 shrink-0"
+              className="flex items-center bg-slate-900/80 rounded-md sm:rounded-lg px-0.5 sm:px-1 py-0.5 border border-slate-700 shrink-0"
             >
               {/* Suit marker */}
-              <span className={`text-xs sm:text-sm font-black mr-1 ${SUIT_COLORS[suit]}`}>
+              <span className={`text-[10px] sm:text-xs font-black mr-0.5 shrink-0 ${SUIT_COLORS[suit]}`}>
                 {SUIT_SYMBOLS[suit]}
               </span>
 
@@ -114,7 +114,7 @@ export const DummyHandView: React.FC<DummyHandViewProps> = ({
                     <div
                       key={card.id}
                       className={`transition-transform ${
-                        idx > 0 ? '-ml-5 sm:-ml-6' : ''
+                        idx > 0 ? '-ml-[21px] sm:-ml-6' : ''
                       } ${isPlayable ? 'hover:-translate-y-1 z-20' : 'z-10'}`}
                     >
                       <CardView
