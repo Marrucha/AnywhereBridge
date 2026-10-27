@@ -5,6 +5,9 @@ import { ScoreModal } from './components/ScoreModal';
 import { QRModal } from './components/QRModal';
 import { ConnectionModal } from './components/ConnectionModal';
 import { PlayersModal } from './components/PlayersModal';
+import { VulBadge } from './components/VulBadge';
+import { ConnectingScreen } from './components/ConnectingScreen';
+import { useLocalBotGame } from './hooks/useLocalBotGame';
 import {
   getStoredScores,
   saveScoreRecord,
@@ -15,7 +18,7 @@ import {
   getStoredSeat,
   saveStoredSeat,
 } from './storage/scores';
-import { Plane, Trophy, QrCode, RotateCcw, Wifi, WifiOff, Settings, Users } from 'lucide-react';
+import { Plane, Trophy, QrCode, RotateCcw, Wifi, WifiOff, Settings, Users, Bot } from 'lucide-react';
 
 const DEFAULT_ROOM_ID = 'air-737';
 
@@ -65,6 +68,25 @@ export const App: React.FC = () => {
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Local Bot game integration
+  const {
+    localSession,
+    isBotGame,
+    ddsResult,
+    ddsLoading,
+    startBotGame,
+    stopBotGame,
+    makeBotGameBid,
+    playBotGameCard,
+    nextBotGameBoard,
+  } = useLocalBotGame(mySeat, playerName, (record) => {
+    const updated = saveScoreRecord(record);
+    setLocalScores(updated);
+  });
+
+  const effectiveState = isBotGame && localSession ? localSession.state : roomState;
+  const effectiveMySeat = isBotGame ? (mySeat || 'S') : mySeat;
 
   // Auto-detect server info (IPs) for QR code
   useEffect(() => {
@@ -182,33 +204,59 @@ export const App: React.FC = () => {
   };
 
   const handleTakeSeat = (seat: Seat) => {
-    sendMessage({ type: 'take_seat', seat });
+    setMySeat(seat);
+    saveStoredSeat(seat);
+    if (!isBotGame) {
+      sendMessage({ type: 'take_seat', seat });
+    }
   };
 
   const handleLeaveSeat = () => {
-    sendMessage({ type: 'leave_seat' });
+    if (isBotGame) {
+      stopBotGame();
+    } else {
+      sendMessage({ type: 'leave_seat' });
+    }
     setMySeat(null);
     saveStoredSeat(null);
   };
 
   const handleStartGame = () => {
-    sendMessage({ type: 'start_game' });
+    if (isBotGame) {
+      startBotGame(mySeat || 'S', 1);
+    } else {
+      sendMessage({ type: 'start_game' });
+    }
   };
 
   const handleMakeBid = (bid: any) => {
-    sendMessage({ type: 'make_bid', bid });
+    if (isBotGame) {
+      makeBotGameBid(bid);
+    } else {
+      sendMessage({ type: 'make_bid', bid });
+    }
   };
 
   const handlePlayCard = (cardId: string) => {
-    sendMessage({ type: 'play_card', cardId });
+    if (isBotGame) {
+      playBotGameCard(cardId);
+    } else {
+      sendMessage({ type: 'play_card', cardId });
+    }
   };
 
   const handleNextBoard = () => {
-    sendMessage({ type: 'next_board' });
+    if (isBotGame) {
+      nextBotGameBoard();
+    } else {
+      sendMessage({ type: 'next_board' });
+    }
   };
 
   const handleResetRoom = () => {
-    if (window.confirm('Czy na pewno chcesz zresetować stan pokoju do poczekalni?')) {
+    if (isBotGame) {
+      stopBotGame();
+    } else if (window.confirm('Czy na pewno chcesz zresetować stan pokoju do poczekalni?')) {
       sendMessage({ type: 'reset_room' });
     }
   };
@@ -217,21 +265,6 @@ export const App: React.FC = () => {
     clearStoredScores();
     setLocalScores([]);
     sendMessage({ type: 'clear_history' });
-  };
-
-  const getVulBadge = (vul?: string) => {
-    switch (vul) {
-      case 'NONE':
-        return <span className="bg-emerald-950/80 border border-emerald-500/40 text-emerald-400 px-2 py-0.5 rounded text-[11px] font-bold">Przed partią (Żadna)</span>;
-      case 'BOTH':
-        return <span className="bg-rose-950/80 border border-rose-500/40 text-rose-400 px-2 py-0.5 rounded text-[11px] font-bold">Po partii (Obie)</span>;
-      case 'NS':
-        return <span className="bg-amber-950/80 border border-amber-500/40 text-amber-400 px-2 py-0.5 rounded text-[11px] font-bold">NS po partii</span>;
-      case 'EW':
-        return <span className="bg-sky-950/80 border border-sky-500/40 text-sky-400 px-2 py-0.5 rounded text-[11px] font-bold">EW po partii</span>;
-      default:
-        return null;
-    }
   };
 
   const handleUpdateConnection = (newServer: string, newRoom: string) => {
@@ -249,8 +282,6 @@ export const App: React.FC = () => {
     }
   };
 
-  const serverUrl = window.location.origin;
-
   return (
     <div className="flex flex-col h-screen w-screen bg-felt-dark text-slate-100 overflow-hidden font-sans">
       {/* TOP HUD BAR */}
@@ -265,12 +296,28 @@ export const App: React.FC = () => {
               <span className="bg-slate-800 text-amber-400 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-700">
                 {roomId}
               </span>
+              {isBotGame && (
+                <div className="flex items-center gap-1.5 ml-1">
+                  <span className="bg-indigo-950/90 border border-indigo-500/50 text-indigo-300 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                    <Bot className="w-3 h-3 text-indigo-400" />
+                    <span>Boty (Test)</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={stopBotGame}
+                    className="text-[10px] text-slate-400 hover:text-white underline transition"
+                    title="Wyjdź z gry z botami"
+                  >
+                    Wyjdź
+                  </button>
+                </div>
+              )}
             </div>
-            {roomState && (
+            {effectiveState && (
               <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                <span>Rozdanie #{roomState.boardNumber}</span>
+                <span>Rozdanie #{effectiveState.boardNumber}</span>
                 <span>•</span>
-                <span>Rozdający: <strong className="text-slate-200">{roomState.dealer}</strong></span>
+                <span>Rozdający: <strong className="text-slate-200">{effectiveState.dealer}</strong></span>
               </div>
             )}
           </div>
@@ -278,7 +325,7 @@ export const App: React.FC = () => {
 
         {/* Center Vulnerability Status */}
         <div className="hidden md:flex items-center gap-2">
-          {roomState && getVulBadge(roomState.vulnerability)}
+          {effectiveState && <VulBadge vulnerability={effectiveState.vulnerability} />}
         </div>
 
         {/* Right Action Buttons */}
@@ -298,7 +345,7 @@ export const App: React.FC = () => {
           </button>
 
           {/* Players in room counter button */}
-          {roomState && (
+          {effectiveState && (
             <button
               type="button"
               onClick={() => setIsPlayersOpen(true)}
@@ -307,9 +354,9 @@ export const App: React.FC = () => {
             >
               <Users className="w-4 h-4 text-emerald-400" />
               <span>
-                {roomState.connectedCount !== undefined
-                  ? roomState.connectedCount
-                  : Math.max((roomState.connectedPlayers || []).length, Object.values(roomState.seats).filter(Boolean).length)}
+                {effectiveState.connectedCount !== undefined
+                  ? effectiveState.connectedCount
+                  : Math.max((effectiveState.connectedPlayers || []).length, Object.values(effectiveState.seats).filter(Boolean).length)}
               </span>
               <span className="hidden md:inline text-slate-400 font-normal">w pokoju</span>
             </button>
@@ -331,7 +378,6 @@ export const App: React.FC = () => {
             )}
           </button>
 
-          {/* QR Code button */}
           {/* QR Code button */}
           <button
             type="button"
@@ -357,10 +403,10 @@ export const App: React.FC = () => {
 
       {/* MAIN GAME TABLE VIEW */}
       <main className="flex-1 relative overflow-hidden">
-        {roomState ? (
+        {effectiveState ? (
           <BridgeTable
-            state={roomState}
-            mySeat={mySeat}
+            state={effectiveState}
+            mySeat={effectiveMySeat}
             onTakeSeat={handleTakeSeat}
             onLeaveSeat={handleLeaveSeat}
             onStartGame={handleStartGame}
@@ -369,44 +415,19 @@ export const App: React.FC = () => {
             onNextBoard={handleNextBoard}
             onResetRoom={handleResetRoom}
             onOpenQR={() => setIsQROpen(true)}
+            onStartBotGame={() => startBotGame(mySeat || 'S', 1)}
+            isBotGame={isBotGame}
+            ddsResult={ddsResult}
+            ddsLoading={ddsLoading}
           />
         ) : (
-          <div className="h-full flex flex-col items-center justify-center p-4 text-center space-y-4 max-w-sm mx-auto">
-            <div className="w-12 h-12 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
-            <div>
-              <p className="text-base font-bold text-slate-100">Łączenie z serwerem pokładowym anywhereBridge...</p>
-              <p className="text-xs text-slate-400 mt-1">Pokój: <span className="font-mono text-amber-400 font-bold">{roomId}</span></p>
-              <p className="text-[11px] text-slate-500 font-mono mt-0.5 break-all">Adres: {activeWsUrl}</p>
-            </div>
-
-            <div className="bg-slate-900/95 border border-slate-800 rounded-xl p-3 w-full text-xs text-slate-300 space-y-2 shadow-xl">
-              <p className="text-slate-400 text-[11px] font-medium">Brak połączenia? Wybierz rolę:</p>
-              <div className="flex flex-col gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleUpdateConnection('127.0.0.1:8080', roomId)}
-                  className="py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-98 text-amber-300 border border-slate-700 rounded-lg font-bold transition flex items-center justify-center gap-1.5 text-xs"
-                >
-                  📱 Jestem Hostem (127.0.0.1:8080)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleUpdateConnection('192.168.43.1:8080', roomId)}
-                  className="py-2 px-3 bg-slate-800 hover:bg-slate-700 active:scale-98 text-emerald-300 border border-slate-700 rounded-lg font-bold transition flex items-center justify-center gap-1.5 text-xs"
-                >
-                  ✈️ Łączę się z Hotspotem (192.168.43.1:8080)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsConnectionOpen(true)}
-                  className="py-1.5 px-3 bg-slate-950 hover:bg-slate-800 text-slate-400 rounded-lg transition flex items-center justify-center gap-1 text-[11px]"
-                >
-                  <Settings className="w-3.5 h-3.5" />
-                  Wpisz inny adres IP
-                </button>
-              </div>
-            </div>
-          </div>
+          <ConnectingScreen
+            roomId={roomId}
+            activeWsUrl={activeWsUrl}
+            onStartBotGame={() => startBotGame(mySeat || 'S', 1)}
+            onUpdateConnection={handleUpdateConnection}
+            onOpenConnectionModal={() => setIsConnectionOpen(true)}
+          />
         )}
       </main>
 
@@ -436,7 +457,7 @@ export const App: React.FC = () => {
       <PlayersModal
         isOpen={isPlayersOpen}
         onClose={() => setIsPlayersOpen(false)}
-        state={roomState}
+        state={effectiveState}
         onOpenQR={() => setIsQROpen(true)}
       />
     </div>

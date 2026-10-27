@@ -3,9 +3,11 @@ import { Card, Contract, PlayedCard, RoomState, Seat, Trick } from '../types/bri
 import { CardView } from './CardView';
 import { BiddingBox } from './BiddingBox';
 import { BiddingTray } from './BiddingTray';
+import { DdsView } from './DdsView';
+import { DdsTableResult } from '../logic/dds';
 import { isCardLegal } from '../logic/play';
 import { formatContractString } from '../logic/scoring';
-import { Users, AlertCircle, Play, RotateCcw, QrCode } from 'lucide-react';
+import { Users, AlertCircle, Play, RotateCcw, QrCode, Bot } from 'lucide-react';
 
 interface BridgeTableProps {
   state: RoomState;
@@ -18,6 +20,10 @@ interface BridgeTableProps {
   onNextBoard: () => void;
   onResetRoom: () => void;
   onOpenQR: () => void;
+  onStartBotGame?: () => void;
+  isBotGame?: boolean;
+  ddsResult?: DdsTableResult | null;
+  ddsLoading?: boolean;
 }
 
 const SEAT_NAMES: Record<Seat, string> = {
@@ -37,6 +43,10 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   onPlayCard,
   onNextBoard,
   onOpenQR,
+  onStartBotGame,
+  isBotGame = false,
+  ddsResult = null,
+  ddsLoading = false,
 }) => {
   const {
     phase,
@@ -188,11 +198,23 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             <button
               type="button"
               onClick={onOpenQR}
-              className="w-full py-3 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2"
             >
               <QrCode className="w-5 h-5" />
               Pokaż kod QR dla współgraczy (Dołącz do pokoju {state.roomId})
             </button>
+
+            {/* Play with bots option */}
+            {onStartBotGame && (
+              <button
+                type="button"
+                onClick={onStartBotGame}
+                className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2 border border-indigo-400/40"
+              >
+                <Bot className="w-5 h-5 text-indigo-200" />
+                <span>🤖 Zagraj testowo z botami (N, E, W)</span>
+              </button>
+            )}
 
             {allSeatsOccupied ? (
               <button
@@ -215,12 +237,12 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
       {/* RESULT MODAL OVERLAY */}
       {phase === 'BOARD_RESULT' && lastResult && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl p-6 max-w-md w-full text-center shadow-2xl space-y-4">
+        <div className="absolute inset-0 z-40 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-fadeIn overflow-y-auto">
+          <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl p-4 sm:p-5 max-w-lg w-full text-center shadow-2xl space-y-3.5 my-auto max-h-[95vh] overflow-y-auto">
             <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Rozdanie zakończone</span>
-            <h3 className="text-2xl font-black text-white">{lastResult.resultDetail}</h3>
+            <h3 className="text-xl sm:text-2xl font-black text-white">{lastResult.resultDetail}</h3>
 
-            <div className="grid grid-cols-2 gap-3 py-3 border-y border-slate-800 text-sm">
+            <div className="grid grid-cols-2 gap-2.5 py-2 border-y border-slate-800 text-sm">
               <div>
                 <span className="text-slate-400 block text-xs">Lewy N-S</span>
                 <span className="text-xl font-black text-white">{lastResult.tricksWonNS}</span>
@@ -231,25 +253,34 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 bg-slate-950/60 p-3 rounded-xl">
+            <div className="grid grid-cols-2 gap-2.5 bg-slate-950/60 p-2.5 rounded-xl text-sm">
               <div>
                 <span className="text-slate-400 text-xs block">Zapis N-S</span>
-                <span className={`text-lg font-bold ${lastResult.scoreNS >= 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                <span className={`text-base sm:text-lg font-bold ${lastResult.scoreNS >= 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
                   {lastResult.scoreNS >= 0 ? `+${lastResult.scoreNS}` : lastResult.scoreNS}
                 </span>
               </div>
               <div>
                 <span className="text-slate-400 text-xs block">Zapis E-W</span>
-                <span className={`text-lg font-bold ${lastResult.scoreEW >= 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+                <span className={`text-base sm:text-lg font-bold ${lastResult.scoreEW >= 0 ? 'text-amber-400' : 'text-slate-400'}`}>
                   {lastResult.scoreEW >= 0 ? `+${lastResult.scoreEW}` : lastResult.scoreEW}
                 </span>
               </div>
             </div>
 
+            {/* Double Dummy Solver (DDS) & Minimax Matrix */}
+            <DdsView
+              ddsResult={ddsResult}
+              loading={ddsLoading}
+              contract={contract}
+              wonNS={lastResult.tricksWonNS}
+              wonEW={lastResult.tricksWonEW}
+            />
+
             <button
               type="button"
               onClick={onNextBoard}
-              className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2"
             >
               <RotateCcw className="w-4 h-4" />
               Następne Rozdanie (#{state.boardNumber + 1})
