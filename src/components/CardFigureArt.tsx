@@ -29,7 +29,7 @@ export const CardFigureArt: React.FC<CardFigureArtProps> = ({ rank, suit }) => {
     return (
       <svg viewBox="0 0 60 70" className="w-full h-full max-h-[82%] select-none pointer-events-none">
         {/* Robe backdrop */}
-        <path d="M12 40 L16 30 L44 30 L48 40 L52 68 L8 68 Z" fill={suitColor} opacity="0.9" />
+        <path d="M12 40 L16 30 L44 30 L48 40 L52 68 L8 68 Z" fill={suitColor} />
         <path d="M18 34 L30 46 L42 34 L38 68 L22 68 Z" fill="#f8fafc" stroke="#cbd5e1" strokeWidth="0.8" />
         
         {/* Ermine spots on white collar */}
@@ -76,7 +76,7 @@ export const CardFigureArt: React.FC<CardFigureArtProps> = ({ rank, suit }) => {
     return (
       <svg viewBox="0 0 60 70" className="w-full h-full max-h-[82%] select-none pointer-events-none">
         {/* Robe backdrop */}
-        <path d="M14 42 L18 32 L42 32 L46 42 L50 68 L10 68 Z" fill={suitColor} opacity="0.9" />
+        <path d="M14 42 L18 32 L42 32 L46 42 L50 68 L10 68 Z" fill={suitColor} />
         <path d="M20 36 L30 46 L40 36 L36 68 L24 68 Z" fill="#ffffff" stroke="#e2e8f0" strokeWidth="0.8" />
 
         {/* Queen's Hair */}
@@ -118,7 +118,7 @@ export const CardFigureArt: React.FC<CardFigureArtProps> = ({ rank, suit }) => {
     return (
       <svg viewBox="0 0 60 70" className="w-full h-full max-h-[82%] select-none pointer-events-none">
         {/* Doublet / Tunic */}
-        <path d="M13 38 L18 30 L42 30 L47 38 L50 68 L10 68 Z" fill={suitColor} opacity="0.9" />
+        <path d="M13 38 L18 30 L42 30 L47 38 L50 68 L10 68 Z" fill={suitColor} />
         
         {/* Knightly diagonal sash */}
         <path d="M18 30 L45 68 L37 68 L14 34 Z" fill="#fbbf24" stroke="#b45309" strokeWidth="0.8" />

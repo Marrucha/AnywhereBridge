@@ -54,15 +54,13 @@ export const CardView: React.FC<CardViewProps> = ({
     ? 'border-2 border-amber-400 ring-2 ring-amber-400/60'
     : 'border-2 border-slate-700/80';
 
-  const opacityClass = disabled || !isPlayable ? 'opacity-85' : 'opacity-100';
-
   return (
     <button
       type="button"
       onClick={!disabled && isPlayable ? onClick : undefined}
       disabled={disabled || !isPlayable}
-      className={`relative bg-white select-none box-border overflow-hidden shrink-0 font-bold ${sizeClasses} ${textColor} ${interactionClasses} ${borderClass} ${opacityClass}`}
-      style={{ touchAction: 'manipulation' }}
+      className={`relative select-none box-border overflow-hidden shrink-0 font-bold ${sizeClasses} ${textColor} ${interactionClasses} ${borderClass}`}
+      style={{ touchAction: 'manipulation', backgroundColor: '#ffffff', opacity: 1 }}
     >
       {/* Top Left Rank & Pip */}
       <div className="absolute top-0.5 left-1 flex flex-col items-center leading-none pointer-events-none z-10">
