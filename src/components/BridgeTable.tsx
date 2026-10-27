@@ -5,6 +5,7 @@ import { BiddingBox } from './BiddingBox';
 import { BiddingTray } from './BiddingTray';
 import { DdsView } from './DdsView';
 import { DummyHandView } from './DummyHandView';
+import { PlayerHandView } from './PlayerHandView';
 import { LobbyOverlay } from './LobbyOverlay';
 import { DdsTableResult } from '../logic/dds';
 import { isCardLegal } from '../logic/play';
@@ -398,33 +399,18 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           </div>
         )}
 
-        {/* Player's Cards in Hand */}
+        {/* Player's Cards in Hand - Grouped by suit with overlap exactly like Dummy */}
         {myHand && myHand.length > 0 && (
-          <div className="w-full bg-slate-900/80 backdrop-blur rounded-xl p-1 sm:p-1.5 border border-slate-800 shadow-xl shrink-0">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 px-2 pb-0.5 leading-none">
-              <span>Twoja ręka ({mySeat ? SEAT_NAMES[mySeat] : 'Widz'})</span>
-              {isMyTurn && phase === 'PLAYING' && (
-                <span className="text-amber-400 font-bold animate-pulse text-[10px]">Twoja tura do zagrania karty!</span>
-              )}
-            </div>
-
-            <div className="flex items-center justify-center gap-1 sm:gap-1.5 overflow-x-auto py-0.5">
-              {myHand.map((card) => {
-                const isPlayable = isMyTurn && phase === 'PLAYING' && isCardLegal(card, myHand, leadCardSuit);
-                return (
-                  <CardView
-                    key={card.id}
-                    card={card}
-                    size="md"
-                    isPlayable={isPlayable}
-                    onClick={() => {
-                      if (isPlayable) onPlayCard(card.id);
-                    }}
-                  />
-                );
-              })}
-            </div>
-          </div>
+          <PlayerHandView
+            hand={myHand}
+            isMyTurn={isMyTurn}
+            phase={phase}
+            leadCardSuit={leadCardSuit}
+            onPlayCard={onPlayCard}
+            mySeat={mySeat}
+            seatName={mySeat ? SEAT_NAMES[mySeat] : undefined}
+            trumpSuit={contract ? contract.suit : undefined}
+          />
         )}
       </div>
     </div>
