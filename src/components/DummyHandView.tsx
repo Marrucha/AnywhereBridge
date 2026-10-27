@@ -65,45 +65,48 @@ export const DummyHandView: React.FC<DummyHandViewProps> = ({
 
   return (
     <div
-      className={`w-full max-w-xl mx-auto my-1 px-2 py-1 rounded-2xl border transition-all shadow-lg ${
+      className={`w-full max-w-xl mx-auto my-1 px-2 py-1.5 rounded-2xl border transition-all ${
         canIPlayDummy
-          ? 'bg-amber-950/40 border-amber-400/80 ring-2 ring-amber-400/50 shadow-amber-500/10'
-          : 'bg-slate-950/85 border-slate-700/80'
+          ? 'bg-amber-950/60 border-amber-400 ring-2 ring-amber-400/60 shadow-lg shadow-amber-500/20'
+          : 'bg-slate-950/90 border-slate-700/80'
       }`}
     >
       {/* Header bar */}
-      <div className="flex items-center justify-between text-[11px] font-bold px-1 pb-1">
-        <div className="flex items-center gap-1.5 text-slate-300">
+      <div className="flex items-center justify-between text-xs font-bold px-1 pb-1">
+        <div className="flex items-center gap-1.5 text-slate-200">
           <span className="text-amber-400 font-black">Dziadek ({dummySeat}):</span>
-          <span className="text-slate-400 font-medium truncate max-w-[120px] sm:max-w-[180px]">
+          <span className="text-slate-300 font-semibold truncate max-w-[140px] sm:max-w-[200px]">
             {seatName || dummySeat}
           </span>
-          <span className="text-slate-500 text-[10px]">({dummyHand.length} kart)</span>
+          <span className="text-slate-400 text-[11px]">({dummyHand.length} kart)</span>
         </div>
 
         {canIPlayDummy ? (
-          <span className="text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-black animate-pulse border border-amber-400/50">
-            👉 Wybierz kartę z Dziadka
+          <span className="text-amber-300 bg-amber-500/20 px-2.5 py-0.5 rounded-full text-[11px] font-black animate-pulse border border-amber-400/60">
+            👉 Twoja tura: Wybierz kartę z Dziadka
           </span>
         ) : (
-          <span className="text-slate-400 text-[10px]">Karty odkryte dla stołu</span>
+          <span className="text-slate-400 text-[11px]">Karty odkryte dla stołu</span>
         )}
       </div>
 
-      {/* Cards grouped by suit - optimized for mobile width */}
-      <div className="flex items-center justify-center gap-1 sm:gap-3 overflow-x-auto py-0.5 scrollbar-none">
+      {/* Cards grouped by suit - wraps neatly on small screens so cards are never crammed */}
+      <div className="flex flex-wrap sm:flex-nowrap items-center justify-center gap-2 sm:gap-3 py-1">
         {suitsOrder.map(suit => {
           const suitCards = cardsBySuit[suit];
           if (suitCards.length === 0) return null;
 
           return (
-            <div key={suit} className="flex items-center bg-slate-900/60 rounded-lg px-1 py-0.5 border border-slate-800 shrink-0">
+            <div
+              key={suit}
+              className="flex items-center bg-slate-900/80 rounded-xl px-1.5 py-1 border border-slate-700 shrink-0"
+            >
               {/* Suit marker */}
-              <span className={`text-xs sm:text-sm font-black mr-1 ${SUIT_COLORS[suit]}`}>
+              <span className={`text-sm sm:text-base font-black mr-1.5 ${SUIT_COLORS[suit]}`}>
                 {SUIT_SYMBOLS[suit]}
               </span>
 
-              {/* Overlapped cards within suit */}
+              {/* Overlapped cards within suit (size="dummy" is ~10% smaller than hand cards) */}
               <div className="flex items-center">
                 {suitCards.map((card, idx) => {
                   const isPlayable = canIPlayDummy && isCardLegal(card, dummyHand, leadCardSuit);
@@ -111,12 +114,12 @@ export const DummyHandView: React.FC<DummyHandViewProps> = ({
                     <div
                       key={card.id}
                       className={`transition-transform ${
-                        idx > 0 ? '-ml-4 sm:-ml-3' : ''
-                      } ${isPlayable ? 'hover:-translate-y-1.5 z-10' : ''}`}
+                        idx > 0 ? '-ml-5 sm:-ml-7' : ''
+                      } ${isPlayable ? 'hover:-translate-y-1.5 z-20' : 'z-10'}`}
                     >
                       <CardView
                         card={card}
-                        size="sm"
+                        size="dummy"
                         isPlayable={isPlayable}
                         isHighlighted={isPlayable}
                         onClick={() => {

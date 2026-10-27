@@ -1,12 +1,13 @@
 import React from 'react';
 import { Card, Suit } from '../types/bridge';
+import { CardFigureArt } from './CardFigureArt';
 
 interface CardViewProps {
   card: Card;
   onClick?: () => void;
   disabled?: boolean;
   isPlayable?: boolean;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'dummy' | 'md' | 'lg';
   isHighlighted?: boolean;
 }
 
@@ -17,7 +18,7 @@ const SUIT_SYMBOLS: Record<Suit, string> = {
   C: '♣',
 };
 
-const SUIT_COLORS: Record<Suit, string> = {
+const SUIT_TEXT_COLORS: Record<Suit, string> = {
   S: 'text-slate-900',
   H: 'text-rose-600',
   D: 'text-amber-600',
@@ -33,47 +34,51 @@ export const CardView: React.FC<CardViewProps> = ({
   isHighlighted = false,
 }) => {
   const symbol = SUIT_SYMBOLS[card.suit];
-  const colorClass = SUIT_COLORS[card.suit];
+  const textColor = SUIT_TEXT_COLORS[card.suit];
+  const rankLabel = card.rank === 'T' ? '10' : card.rank;
 
+  // Exact sizes: 'dummy' is calibrated to be exactly ~10% smaller than 'md' (user's hand)
   const sizeClasses = {
-    sm: 'w-8 h-12 text-xs rounded-sm',
-    md: 'w-11 h-16 sm:w-14 sm:h-20 text-sm sm:text-base rounded-md',
-    lg: 'w-14 h-20 sm:w-16 sm:h-24 text-base sm:text-lg rounded-lg',
+    sm: 'w-8 h-12 text-[10px] rounded-md',
+    dummy: 'w-[44px] h-[66px] sm:w-[56px] sm:h-[84px] text-xs sm:text-sm rounded-lg',
+    md: 'w-12 h-18 sm:w-16 sm:h-24 text-xs sm:text-base rounded-lg',
+    lg: 'w-14 h-21 sm:w-18 sm:h-27 text-sm sm:text-lg rounded-xl',
   }[size];
 
-  const clickableClasses = !disabled && isPlayable && onClick
-    ? 'cursor-pointer active:scale-95 hover:-translate-y-2 transition-all shadow-md hover:shadow-xl'
-    : 'cursor-default opacity-90';
+  // Distinct interactive states without blurry shadows
+  const interactionClasses = !disabled && isPlayable && onClick
+    ? 'cursor-pointer hover:-translate-y-1 active:translate-y-0.5 transition-transform'
+    : 'cursor-default';
 
-  const disabledClasses = disabled || !isPlayable
-    ? 'opacity-40 filter grayscale-[40%]'
-    : '';
+  const borderClass = isHighlighted || (!disabled && isPlayable && onClick)
+    ? 'border-2 border-amber-400 ring-2 ring-amber-400/60'
+    : 'border-2 border-slate-700/80';
 
-  const highlightClass = isHighlighted ? 'ring-2 ring-yellow-400 -translate-y-2' : '';
+  const opacityClass = disabled || !isPlayable ? 'opacity-85' : 'opacity-100';
 
   return (
     <button
       type="button"
       onClick={!disabled && isPlayable ? onClick : undefined}
       disabled={disabled || !isPlayable}
-      className={`relative bg-white select-none border border-slate-300 flex flex-col justify-between p-1 sm:p-1.5 shadow-sm font-bold ${sizeClasses} ${colorClass} ${clickableClasses} ${disabledClasses} ${highlightClass}`}
+      className={`relative bg-white select-none box-border overflow-hidden shrink-0 font-bold ${sizeClasses} ${textColor} ${interactionClasses} ${borderClass} ${opacityClass}`}
       style={{ touchAction: 'manipulation' }}
     >
-      {/* Top Left */}
-      <div className="flex flex-col items-center leading-none text-left self-start">
-        <span className="font-mono tracking-tighter">{card.rank === 'T' ? '10' : card.rank}</span>
-        <span className="text-[1.1em]">{symbol}</span>
+      {/* Top Left Rank & Pip */}
+      <div className="absolute top-0.5 left-1 flex flex-col items-center leading-none pointer-events-none z-10">
+        <span className="font-mono font-black text-[1.05em] tracking-tighter">{rankLabel}</span>
+        <span className="text-[1.15em] leading-none">{symbol}</span>
       </div>
 
-      {/* Center symbol */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-2xl sm:text-3xl">
-        {symbol}
+      {/* Center Figure / Pip Art (Clean vector illustration, NO blurry watermark shadows) */}
+      <div className="absolute inset-0 flex items-center justify-center p-1 overflow-hidden pointer-events-none">
+        <CardFigureArt rank={card.rank} suit={card.suit} />
       </div>
 
-      {/* Bottom Right inverted */}
-      <div className="flex flex-col items-center leading-none text-right self-end rotate-180">
-        <span className="font-mono tracking-tighter">{card.rank === 'T' ? '10' : card.rank}</span>
-        <span className="text-[1.1em]">{symbol}</span>
+      {/* Bottom Right Inverted Rank & Pip (strictly kept inside card via absolute positioning & overflow-hidden) */}
+      <div className="absolute bottom-0.5 right-1 flex flex-col items-center leading-none rotate-180 pointer-events-none z-10">
+        <span className="font-mono font-black text-[1.05em] tracking-tighter">{rankLabel}</span>
+        <span className="text-[1.15em] leading-none">{symbol}</span>
       </div>
     </button>
   );

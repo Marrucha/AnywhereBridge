@@ -6,6 +6,7 @@ import {
   applyLocalPlayCard,
   createLocalBotGame,
   getBotNextAction,
+  resolveCompletedTrick,
 } from '../logic/localGame';
 import { DdsTableResult, calculateDdsAnalysis } from '../logic/dds';
 
@@ -93,17 +94,38 @@ export function useLocalBotGame(
     startBotGame(activeSeat, localSession.state.boardNumber + 1);
   };
 
-  // Bot automation loop
+  // Bot automation loop & Trick display pause
   useEffect(() => {
     if (!localSession || !localSession.isBotGame) return;
     const { state } = localSession;
 
     if (state.phase === 'BOARD_RESULT') return;
 
+    // If trick has all 4 cards, keep them visible for 1300ms before collecting
+    if (state.phase === 'PLAYING' && state.currentTrick.cards.length === 4) {
+      botTimerRef.current = setTimeout(() => {
+        setLocalSession(prev => {
+          if (!prev) return null;
+          const next = resolveCompletedTrick(prev);
+          if (next.state.lastResult && onScoreRecorded) {
+            onScoreRecorded(next.state.lastResult);
+          }
+          return next;
+        });
+      }, 1300);
+
+      return () => {
+        if (botTimerRef.current) clearTimeout(botTimerRef.current);
+      };
+    }
+
+    // If currentTurn is null (e.g. during trick resolution pause), wait
+    if (state.currentTurn === null) return;
+
     const botAction = getBotNextAction(localSession, activeSeat);
     if (!botAction) return;
 
-    // Small realistic delay for bot moves
+    // Small realistic delay for bot moves (700ms)
     botTimerRef.current = setTimeout(() => {
       if (botAction.type === 'bid') {
         setLocalSession(prev => {
@@ -124,7 +146,7 @@ export function useLocalBotGame(
           return next;
         });
       }
-    }, 600);
+    }, 700);
 
     return () => {
       if (botTimerRef.current) clearTimeout(botTimerRef.current);

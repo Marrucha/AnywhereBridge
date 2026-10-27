@@ -211,75 +211,23 @@ export function applyLocalPlayCard(
   if (newCards.length === 4) {
     const winner = determineTrickWinner(newTrick, state.contract!.suit);
     const completedTrick = { ...newTrick, winnerSeat: winner };
-    const nextPastTricks = [...state.pastTricks, completedTrick];
 
-    const wonNS = (winner === 'N' || winner === 'S') ? state.tricksWonNS + 1 : state.tricksWonNS;
-    const wonEW = (winner === 'E' || winner === 'W') ? state.tricksWonEW + 1 : state.tricksWonEW;
+    // Keep all 4 cards visible on table! The trick will be cleared after a 1.2s delay
+    const nextState: RoomState = {
+      ...state,
+      hands: nextFullHands,
+      myHand: nextFullHands['S'] || [],
+      dummyHand,
+      currentTrick: completedTrick,
+      currentTurn: null,
+      openingLeadMade,
+    };
 
-    if (nextPastTricks.length === 13) {
-      // Board finished!
-      const score = calculateDuplicateScore(state.contract!, wonNS, wonEW, state.vulnerability);
-      const cStr = formatContractString(state.contract!);
-      const diffStr = score.diff === 0 ? '=' : score.diff > 0 ? `+${score.diff}` : `${score.diff}`;
-      const resultDetail = `${cStr} ${diffStr} (${score.points >= 0 ? '+' : ''}${score.points})`;
-
-      const lastResult: ScoreRecord = {
-        id: `local_b_${Date.now()}`,
-        boardNumber: state.boardNumber,
-        dealer: state.dealer,
-        vulnerability: state.vulnerability,
-        contractStr: cStr,
-        declarer: state.contract!.declarer,
-        tricksWonNS: wonNS,
-        tricksWonEW: wonEW,
-        scoreNS: score.scoreNS,
-        scoreEW: score.scoreEW,
-        resultDetail,
-        timestamp: Date.now(),
-      };
-
-      const finalState: RoomState = {
-        ...state,
-        phase: 'BOARD_RESULT',
-        hands: nextFullHands,
-        myHand: nextFullHands[session.state.myHand ? 'S' : 'N'] || [],
-        dummyHand: null,
-        currentTrick: completedTrick,
-        pastTricks: nextPastTricks,
-        tricksWonNS: wonNS,
-        tricksWonEW: wonEW,
-        currentTurn: null,
-        lastResult,
-        history: [lastResult, ...state.history],
-        openingLeadMade: true,
-      };
-
-      return {
-        ...session,
-        state: finalState,
-        fullHands: nextFullHands,
-      };
-    } else {
-      // Advance to winner for next trick
-      const nextState: RoomState = {
-        ...state,
-        hands: nextFullHands,
-        myHand: nextFullHands['S'] || [],
-        dummyHand,
-        currentTrick: { leadSeat: winner, cards: [] },
-        pastTricks: nextPastTricks,
-        tricksWonNS: wonNS,
-        tricksWonEW: wonEW,
-        currentTurn: winner,
-        openingLeadMade,
-      };
-
-      return {
-        ...session,
-        state: nextState,
-        fullHands: nextFullHands,
-      };
-    }
+    return {
+      ...session,
+      state: nextState,
+      fullHands: nextFullHands,
+    };
   }
 
   // Trick in progress -> Next seat
@@ -349,3 +297,87 @@ export function getBotNextAction(
 
   return null;
 }
+
+/**
+ * Resolves a completed 4-card trick after a brief pause so players can see all cards played.
+ */
+export function resolveCompletedTrick(session: LocalGameSession): LocalGameSession {
+  const { state, fullHands } = session;
+  if (state.phase !== 'PLAYING' || state.currentTrick.cards.length !== 4) {
+    return session;
+  }
+
+  const winner = state.currentTrick.winnerSeat || determineTrickWinner(state.currentTrick, state.contract!.suit);
+  const completedTrick = { ...state.currentTrick, winnerSeat: winner };
+  const nextPastTricks = [...state.pastTricks, completedTrick];
+
+  const wonNS = (winner === 'N' || winner === 'S') ? state.tricksWonNS + 1 : state.tricksWonNS;
+  const wonEW = (winner === 'E' || winner === 'W') ? state.tricksWonEW + 1 : state.tricksWonEW;
+  const dummyHand = state.dummySeat ? fullHands[state.dummySeat] : null;
+
+  if (nextPastTricks.length === 13) {
+    // Board finished!
+    const score = calculateDuplicateScore(state.contract!, wonNS, wonEW, state.vulnerability);
+    const cStr = formatContractString(state.contract!);
+    const diffStr = score.diff === 0 ? '=' : score.diff > 0 ? `+${score.diff}` : `${score.diff}`;
+    const resultDetail = `${cStr} ${diffStr} (${score.points >= 0 ? '+' : ''}${score.points})`;
+
+    const lastResult: ScoreRecord = {
+      id: `local_b_${Date.now()}`,
+      boardNumber: state.boardNumber,
+      dealer: state.dealer,
+      vulnerability: state.vulnerability,
+      contractStr: cStr,
+      declarer: state.contract!.declarer,
+      tricksWonNS: wonNS,
+      tricksWonEW: wonEW,
+      scoreNS: score.scoreNS,
+      scoreEW: score.scoreEW,
+      resultDetail,
+      timestamp: Date.now(),
+    };
+
+    const finalState: RoomState = {
+      ...state,
+      phase: 'BOARD_RESULT',
+      hands: fullHands,
+      myHand: fullHands['S'] || [],
+      dummyHand,
+      currentTrick: completedTrick, // 13th trick stays on table
+      pastTricks: nextPastTricks,
+      tricksWonNS: wonNS,
+      tricksWonEW: wonEW,
+      currentTurn: null,
+      lastResult,
+      history: [lastResult, ...state.history],
+      openingLeadMade: true,
+    };
+
+    return {
+      ...session,
+      state: finalState,
+      fullHands,
+    };
+  } else {
+    // Advance to winner for next trick
+    const nextState: RoomState = {
+      ...state,
+      hands: fullHands,
+      myHand: fullHands['S'] || [],
+      dummyHand,
+      currentTrick: { leadSeat: winner, cards: [] },
+      pastTricks: nextPastTricks,
+      tricksWonNS: wonNS,
+      tricksWonEW: wonEW,
+      currentTurn: winner,
+      openingLeadMade: true,
+    };
+
+    return {
+      ...session,
+      state: nextState,
+      fullHands,
+    };
+  }
+}
+
