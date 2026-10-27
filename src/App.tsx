@@ -224,7 +224,7 @@ export const App: React.FC = () => {
 
   const handleStartGame = () => {
     if (isBotGame) {
-      startBotGame(mySeat || 'S', 1);
+      startBotGame(mySeat || 'S', 4);
     } else {
       sendMessage({ type: 'start_game' });
     }

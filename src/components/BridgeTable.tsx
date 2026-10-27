@@ -213,8 +213,8 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         </div>
       )}
 
-      {/* TOP: NORTH SEAT & DUMMY CARDS (ABOVE THE TABLE) */}
-      <div className="flex flex-col items-center gap-1">
+      {/* TOP: NORTH SEAT & DUMMY CARDS */}
+      <div className="flex flex-col items-center gap-0.5">
         <div className={`px-3 py-0.5 rounded-full text-xs font-bold border transition ${
           currentTurn === 'N' || currentBidder === 'N'
             ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
@@ -224,12 +224,26 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         }`}>
           N: {seats.N ? seats.N.name : 'Pusto'}
           {isNSVul ? ' (Po)' : ' (Przed)'}
-          {declarerSeat === 'N' && ' (Rozgrywający)'}
-          {dummySeat === 'N' && ' (Dziadek)'}
+          {phase === 'PLAYING' && (
+            declarerSeat === 'N' ? ' • Rozgrywający' :
+            dummySeat === 'N' ? ' • Dziadek' :
+            ' • Partner (Obrońca)'
+          )}
         </div>
 
-        {/* DUMMY CARDS (If exposed) - Positioned ABOVE THE FELT TABLE */}
-        {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat && dummyHand && dummyHand.length > 0 && (
+        {/* If North is Defender, partner's cards are hidden */}
+        {phase === 'PLAYING' && dummySeat !== 'N' && declarerSeat !== 'N' && (
+          <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-900/90 border border-slate-700/80 text-[10px] sm:text-[11px] text-slate-300 shadow-sm">
+            <span className="text-amber-400">🔒</span>
+            <span className="font-semibold text-slate-200">Karty partnera zakryte</span>
+            <span className="text-slate-400">
+              ({Math.max(0, 13 - (pastTricks ? pastTricks.length : 0) - (getPlayedCardForSeat('N') ? 1 : 0))} kart)
+            </span>
+          </div>
+        )}
+
+        {/* DUMMY CARDS (If Dummy is North) */}
+        {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat === 'N' && dummyHand && dummyHand.length > 0 && (
           <div className="w-full max-w-xl mx-auto px-1">
             <DummyHandView
               dummySeat={dummySeat}
@@ -238,10 +252,30 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               leadCardSuit={leadCardSuit}
               onPlayCard={onPlayCard}
               trumpSuit={contract ? contract.suit : undefined}
+              declarerSeat={declarerSeat}
+              mySeat={mySeat}
+              seatName={seats.N?.name}
             />
           </div>
         )}
       </div>
+
+      {/* DUMMY CARDS (If Dummy is East or West) - Dedicated exposed board */}
+      {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat && dummySeat !== 'N' && dummyHand && dummyHand.length > 0 && (
+        <div className="w-full max-w-xl mx-auto px-1">
+          <DummyHandView
+            dummySeat={dummySeat}
+            dummyHand={dummyHand}
+            canIPlayDummy={canIPlayDummy}
+            leadCardSuit={leadCardSuit}
+            onPlayCard={onPlayCard}
+            trumpSuit={contract ? contract.suit : undefined}
+            declarerSeat={declarerSeat}
+            mySeat={mySeat}
+            seatName={seats[dummySeat]?.name}
+          />
+        </div>
+      )}
 
       {/* PROMINENT TRICK SCOREBOARD BAR */}
       {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && contract && (
@@ -296,8 +330,11 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           }`}>
             W: {seats.W ? seats.W.name : 'Pusto'}
             {isEWVul ? ' (Po)' : ' (Przed)'}
-            {declarerSeat === 'W' && <span className="block text-[9px]">(R)</span>}
-            {dummySeat === 'W' && <span className="block text-[9px]">(D)</span>}
+            {declarerSeat === 'W' && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
+            {dummySeat === 'W' && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️</span>}
+            {phase === 'PLAYING' && declarerSeat !== 'W' && dummySeat !== 'W' && (
+              <span className="block text-[8px] text-slate-400">Obrońca</span>
+            )}
           </div>
         </div>
 
@@ -386,8 +423,11 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           }`}>
             E: {seats.E ? seats.E.name : 'Pusto'}
             {isEWVul ? ' (Po)' : ' (Przed)'}
-            {declarerSeat === 'E' && <span className="block text-[9px]">(R)</span>}
-            {dummySeat === 'E' && <span className="block text-[9px]">(D)</span>}
+            {declarerSeat === 'E' && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
+            {dummySeat === 'E' && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️</span>}
+            {phase === 'PLAYING' && declarerSeat !== 'E' && dummySeat !== 'E' && (
+              <span className="block text-[8px] text-slate-400">Obrońca</span>
+            )}
           </div>
         </div>
       </div>
@@ -403,9 +443,12 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         }`}>
           S: {seats.S ? seats.S.name : 'Pusto'}
           {isNSVul ? ' (Po)' : ' (Przed)'}
-          {declarerSeat === 'S' && ' (Rozgrywający)'}
-          {dummySeat === 'S' && ' (Dziadek)'}
-          {mySeat === 'S' && ' • (Ty)'}
+          {phase === 'PLAYING' && (
+            declarerSeat === 'S' ? ' • Rozgrywający' :
+            dummySeat === 'S' ? ' • Dziadek' :
+            ' • Ty (Obrońca)'
+          )}
+          {phase !== 'PLAYING' && mySeat === 'S' && ' • (Ty)'}
         </div>
 
         {/* Bidding Controls if Bidding phase */}
