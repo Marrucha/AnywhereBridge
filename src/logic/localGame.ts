@@ -261,9 +261,8 @@ export function getBotNextAction(
   if (state.phase === 'BIDDING') {
     const bidder = state.currentBidder;
     if (bidder && bidder !== mySeat) {
-      const hasHumanBid = state.bids.some(b => b.bidder === mySeat && b.type === 'BID');
-      const bid = getBotBid(state.bids.length, hasHumanBid);
-      return { type: 'bid', seat: bidder, bid };
+      // Testowo boty zawsze pasują
+      return { type: 'bid', seat: bidder, bid: { type: 'PASS' } };
     }
     return null;
   }

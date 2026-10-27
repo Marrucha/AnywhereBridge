@@ -122,8 +122,8 @@ export function useLocalBotGame(
       return;
     }
 
-    // If currentTurn is null, wait
-    if (state.currentTurn === null) return;
+    // If in PLAYING phase and currentTurn is null (e.g. during trick resolution pause), wait
+    if (state.phase === 'PLAYING' && state.currentTurn === null) return;
 
     const botAction = getBotNextAction(localSession, activeSeat);
     if (!botAction) return;
