@@ -66,6 +66,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
     declarerSeat,
     openingLeadMade,
     currentTrick,
+    pastTricks = [],
     currentTurn,
     tricksWonNS,
     tricksWonEW,
