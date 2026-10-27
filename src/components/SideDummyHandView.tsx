@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, Seat, Suit } from '../types/bridge';
+import { CardView } from './CardView';
 import { isCardLegal } from '../logic/play';
 
 interface SideDummyHandViewProps {
@@ -64,52 +65,52 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
   });
 
   return (
-    <div className="flex flex-col gap-0.5 bg-slate-950/95 border-2 border-amber-400/80 rounded-xl p-1 sm:p-1.5 shadow-2xl max-w-[125px] sm:max-w-[170px] shrink-0 animate-fadeIn">
+    <div className="flex flex-col gap-0.5 bg-slate-950/95 border-2 border-amber-400/80 rounded-xl p-1 sm:p-1.5 shadow-2xl shrink-0 animate-fadeIn">
       {/* Header */}
       <div className="text-center pb-0.5 border-b border-slate-700/80 leading-tight">
         <div className="text-[10px] sm:text-xs font-black text-amber-300">
           🂠 Dziadek ({dummySeat})
         </div>
-        <div className="text-[9px] text-slate-400 font-semibold truncate">
+        <div className="text-[9px] text-slate-400 font-semibold truncate max-w-[120px] sm:max-w-[160px]">
           {seatName || (dummySeat === 'E' ? 'Wschód' : 'Zachód')} ({dummyHand.length})
         </div>
       </div>
 
-      {/* 4 Suits in bridge column notation */}
-      <div className="space-y-0.5 pt-0.5">
+      {/* 4 Suits in bridge column notation with REAL PLAYING CARDS */}
+      <div className="space-y-1 pt-0.5">
         {suitsOrder.map(suit => {
           const cards = cardsBySuit[suit];
           return (
-            <div key={suit} className="flex items-center gap-1 min-h-[20px] sm:min-h-[24px]">
+            <div key={suit} className="flex items-center gap-1 min-h-[38px] sm:min-h-[48px]">
+              {/* Suit marker */}
               <span className={`text-xs sm:text-sm font-black w-3.5 text-center shrink-0 ${SUIT_COLORS[suit]}`}>
                 {SUIT_SYMBOLS[suit]}
               </span>
-              <div className="flex items-center flex-wrap gap-0.5">
+
+              {/* Real playing cards with overlap */}
+              <div className="flex items-center">
                 {cards.length === 0 ? (
-                  <span className="text-[10px] text-slate-500 font-mono">—</span>
+                  <span className="text-[10px] text-slate-500 font-mono pl-1">—</span>
                 ) : (
-                  cards.map(card => {
+                  cards.map((card, idx) => {
                     const isPlayable = canIPlayDummy && isCardLegal(card, dummyHand, leadCardSuit);
                     return (
-                      <button
+                      <div
                         key={card.id}
-                        type="button"
-                        disabled={!isPlayable}
-                        onClick={() => {
-                          if (isPlayable && onPlayCard) onPlayCard(card.id);
-                        }}
-                        className={`px-1 py-0.5 rounded text-[10px] sm:text-xs font-black font-mono transition shadow-sm ${
-                          card.suit === 'H' || card.suit === 'D'
-                            ? 'bg-white text-rose-600 border border-rose-300'
-                            : 'bg-white text-slate-950 border border-slate-300'
-                        } ${
-                          isPlayable
-                            ? 'ring-2 ring-amber-400 hover:scale-110 cursor-pointer animate-pulse'
-                            : ''
-                        }`}
+                        className={`transition-transform ${
+                          idx > 0 ? '-ml-[17px] sm:-ml-[21px]' : ''
+                        } ${isPlayable ? 'hover:-translate-y-1 z-20' : 'z-10'}`}
                       >
-                        {card.rank}
-                      </button>
+                        <CardView
+                          card={card}
+                          size="sm"
+                          isPlayable={isPlayable}
+                          isHighlighted={isPlayable}
+                          onClick={() => {
+                            if (canIPlayDummy && isPlayable && onPlayCard) onPlayCard(card.id);
+                          }}
+                        />
+                      </div>
                     );
                   })
                 )}
