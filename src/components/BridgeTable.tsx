@@ -10,6 +10,7 @@ import { LobbyOverlay } from './LobbyOverlay';
 import { DdsTableResult } from '../logic/dds';
 import { isCardLegal } from '../logic/play';
 import { formatContractString } from '../logic/scoring';
+import { formatVulnerabilityPl, isSideVulnerable } from '../logic/vulnerability';
 import { Users, AlertCircle, Play, RotateCcw, QrCode, Bot } from 'lucide-react';
 
 interface BridgeTableProps {
@@ -91,6 +92,8 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   const allSeatsOccupied = seatedCount === 4;
   const totalPlayersInRoom = connectedCount !== undefined ? connectedCount : Math.max(connectedPlayers.length, seatedCount);
   const unseatedList = connectedPlayers.filter(p => !p.seat);
+  const isNSVul = isSideVulnerable('NS', vulnerability);
+  const isEWVul = isSideVulnerable('EW', vulnerability);
 
   const [showResultModal, setShowResultModal] = React.useState(false);
 
@@ -215,9 +218,12 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         <div className={`px-3 py-0.5 rounded-full text-xs font-bold border transition ${
           currentTurn === 'N' || currentBidder === 'N'
             ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-            : 'bg-slate-900/80 text-slate-300 border-slate-700'
+            : isNSVul
+            ? 'bg-rose-950/90 text-rose-200 border-rose-500'
+            : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
         }`}>
           N: {seats.N ? seats.N.name : 'Pusto'}
+          {isNSVul ? ' (Po)' : ' (Przed)'}
           {declarerSeat === 'N' && ' (Rozgrywający)'}
           {dummySeat === 'N' && ' (Dziadek)'}
         </div>
@@ -253,11 +259,13 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             )}
           </div>
 
-          {/* Contract badge */}
-          <div className="px-1.5 py-0.5 bg-amber-500/20 border border-amber-400/40 rounded text-amber-300 font-black text-[10px] sm:text-xs flex items-center gap-1">
-            <span>Kontrakt:</span>
-            <span className="text-white">{formatContractString(contract)}</span>
-            <span className="text-amber-400 text-[9px]">({contract.declarer})</span>
+          {/* Vulnerability badge */}
+          <div className={`px-1.5 py-0.5 rounded text-[10px] sm:text-xs font-black ${
+            vulnerability === 'NONE' ? 'text-emerald-300 bg-emerald-950/80 border border-emerald-500/40' :
+            vulnerability === 'BOTH' ? 'text-rose-300 bg-rose-950/80 border border-rose-500/40' :
+            'text-amber-300 bg-amber-950/80 border border-amber-500/40'
+          }`}>
+            {formatVulnerabilityPl(vulnerability)}
           </div>
 
           {/* E-W tricks */}
@@ -282,9 +290,12 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           <div className={`px-2 py-0.5 rounded-lg text-center text-[11px] sm:text-xs font-bold border transition ${
             currentTurn === 'W' || currentBidder === 'W'
               ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-              : 'bg-slate-900/80 text-slate-300 border-slate-700'
+              : isEWVul
+              ? 'bg-rose-950/90 text-rose-200 border-rose-500'
+              : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
           }`}>
             W: {seats.W ? seats.W.name : 'Pusto'}
+            {isEWVul ? ' (Po)' : ' (Przed)'}
             {declarerSeat === 'W' && <span className="block text-[9px]">(R)</span>}
             {dummySeat === 'W' && <span className="block text-[9px]">(D)</span>}
           </div>
@@ -297,7 +308,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               onCollectTrick();
             }
           }}
-          className={`flex-1 max-w-xl mx-1 sm:mx-2 bg-felt/90 border-2 sm:border-4 border-amber-900/40 rounded-2xl p-1 sm:p-2 shadow-inner relative min-h-[110px] sm:min-h-[150px] max-h-[150px] sm:max-h-[200px] flex flex-col items-center justify-center ${
+          className={`flex-1 max-w-xl mx-1 sm:mx-2 bg-felt/90 border-2 sm:border-4 border-amber-900/40 rounded-2xl p-1 sm:p-2 shadow-inner relative min-h-[120px] sm:min-h-[160px] max-h-[165px] sm:max-h-[220px] flex flex-col items-center justify-center ${
             currentTrick.cards.length === 4 ? 'cursor-pointer' : ''
           }`}
         >
@@ -310,52 +321,56 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
           {/* Phase: PLAYING or BOARD_RESULT (Trick cards in cross orientation) */}
           {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && (
-            <div className="relative w-32 h-32 sm:w-44 sm:h-44 flex items-center justify-center">
-              {/* Winner banner if trick completed (4 cards) - Clickable to collect trick */}
-              {currentTrick.cards.length === 4 && currentTrick.winnerSeat && (
+            <div className="relative w-40 h-40 sm:w-52 sm:h-52 flex items-center justify-center">
+              {/* North Card - SAME SIZE AS HAND (size="md") */}
+              {getPlayedCardForSeat('N') && (
+                <div className="absolute top-0 animate-scaleUp z-10">
+                  <CardView card={getPlayedCardForSeat('N')!.card} size="md" isPlayable={false} />
+                </div>
+              )}
+              {/* South Card - SAME SIZE AS HAND (size="md") */}
+              {getPlayedCardForSeat('S') && (
+                <div className="absolute bottom-0 animate-scaleUp z-10">
+                  <CardView card={getPlayedCardForSeat('S')!.card} size="md" isPlayable={false} />
+                </div>
+              )}
+              {/* West Card - SAME SIZE AS HAND (size="md") */}
+              {getPlayedCardForSeat('W') && (
+                <div className="absolute left-0 animate-scaleUp z-10">
+                  <CardView card={getPlayedCardForSeat('W')!.card} size="md" isPlayable={false} />
+                </div>
+              )}
+              {/* East Card - SAME SIZE AS HAND (size="md") */}
+              {getPlayedCardForSeat('E') && (
+                <div className="absolute right-0 animate-scaleUp z-10">
+                  <CardView card={getPlayedCardForSeat('E')!.card} size="md" isPlayable={false} />
+                </div>
+              )}
+
+              {/* CENTER: Winner badge if trick complete (doesn't cover any card) OR LARGE CONTRACT */}
+              {currentTrick.cards.length === 4 && currentTrick.winnerSeat ? (
                 <div
                   onClick={(e) => {
                     e.stopPropagation();
                     if (onCollectTrick) onCollectTrick();
                   }}
-                  className="absolute -top-3 z-30 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] sm:text-xs px-3 py-1 rounded-full shadow-2xl border border-amber-100 animate-pulse cursor-pointer flex items-center gap-1.5"
+                  className="z-30 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-2.5 py-1 rounded-xl shadow-2xl border-2 border-amber-100 animate-pulse cursor-pointer flex flex-col items-center justify-center text-center leading-tight"
                 >
-                  <span>🎉 Lewę bierze: {SEAT_NAMES[currentTrick.winnerSeat]}</span>
-                  <span className="text-[9px] bg-slate-950 text-amber-300 px-2 py-0.5 rounded-full font-bold">
-                    Dotknij ekran 👉
+                  <span className="text-[11px] font-black">
+                    🎉 {SEAT_NAMES[currentTrick.winnerSeat]?.split(' ')[0]} ({currentTrick.winnerSeat})
+                  </span>
+                  <span className="text-[9px] bg-slate-950 text-amber-300 px-1.5 py-0.5 rounded font-bold mt-0.5">
+                    Dotknij 👉
                   </span>
                 </div>
+              ) : (
+                contract && (
+                  <div className="z-10 bg-slate-950/95 border-2 border-amber-400 text-amber-300 px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl shadow-2xl font-black flex items-center gap-1.5 pointer-events-none">
+                    <span className="text-white text-base sm:text-2xl font-black">{formatContractString(contract)}</span>
+                    <span className="text-amber-400 text-xs sm:text-sm font-bold">({contract.declarer})</span>
+                  </div>
+                )
               )}
-
-              {/* North Card */}
-              {getPlayedCardForSeat('N') && (
-                <div className="absolute top-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('N')!.card} size="sm" isPlayable={false} />
-                </div>
-              )}
-              {/* South Card */}
-              {getPlayedCardForSeat('S') && (
-                <div className="absolute bottom-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('S')!.card} size="sm" isPlayable={false} />
-                </div>
-              )}
-              {/* West Card */}
-              {getPlayedCardForSeat('W') && (
-                <div className="absolute left-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('W')!.card} size="sm" isPlayable={false} />
-                </div>
-              )}
-              {/* East Card */}
-              {getPlayedCardForSeat('E') && (
-                <div className="absolute right-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('E')!.card} size="sm" isPlayable={false} />
-                </div>
-              )}
-
-              {/* Center trick summary badge */}
-              <div className="bg-slate-950/80 border border-slate-700 px-2 py-0.5 rounded-full text-[10px] text-slate-300 font-semibold backdrop-blur text-center pointer-events-none">
-                {contract && formatContractString(contract)}
-              </div>
             </div>
           )}
         </div>
@@ -365,9 +380,12 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           <div className={`px-2 py-0.5 rounded-lg text-center text-[11px] sm:text-xs font-bold border transition ${
             currentTurn === 'E' || currentBidder === 'E'
               ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-              : 'bg-slate-900/80 text-slate-300 border-slate-700'
+              : isEWVul
+              ? 'bg-rose-950/90 text-rose-200 border-rose-500'
+              : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
           }`}>
             E: {seats.E ? seats.E.name : 'Pusto'}
+            {isEWVul ? ' (Po)' : ' (Przed)'}
             {declarerSeat === 'E' && <span className="block text-[9px]">(R)</span>}
             {dummySeat === 'E' && <span className="block text-[9px]">(D)</span>}
           </div>
@@ -379,9 +397,12 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         <div className={`px-3 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border transition shrink-0 ${
           currentTurn === 'S' || currentBidder === 'S'
             ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-            : 'bg-slate-900/80 text-slate-300 border-slate-700'
+            : isNSVul
+            ? 'bg-rose-950/90 text-rose-200 border-rose-500'
+            : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
         }`}>
           S: {seats.S ? seats.S.name : 'Pusto'}
+          {isNSVul ? ' (Po)' : ' (Przed)'}
           {declarerSeat === 'S' && ' (Rozgrywający)'}
           {dummySeat === 'S' && ' (Dziadek)'}
           {mySeat === 'S' && ' • (Ty)'}
