@@ -238,54 +238,54 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
       {/* PROMINENT TRICK SCOREBOARD BAR */}
       {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && contract && (
-        <div className="w-full max-w-xl mx-auto px-2.5 py-1 bg-slate-950/90 border border-slate-700/80 rounded-xl flex items-center justify-between text-xs sm:text-sm font-bold shadow-lg my-0.5">
+        <div className="w-full max-w-xl mx-auto px-2 py-0.5 bg-slate-950/90 border border-slate-700/80 rounded-lg flex items-center justify-between text-[11px] sm:text-xs font-bold shadow-md my-0.5 shrink-0">
           {/* N-S tricks */}
-          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg ${
+          <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${
             (mySeat === 'N' || mySeat === 'S') ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300' : 'text-slate-300'
           }`}>
-            <span className="text-[11px] font-semibold text-slate-400">
+            <span className="text-[10px] font-semibold text-slate-400">
               {(mySeat === 'N' || mySeat === 'S') ? 'My (N-S):' : 'Para N-S:'}
             </span>
-            <span className="text-base sm:text-lg font-black text-white font-mono">{tricksWonNS}</span>
+            <span className="text-sm sm:text-base font-black text-white font-mono">{tricksWonNS}</span>
             {(contract.declarer === 'N' || contract.declarer === 'S') && (
-              <span className="text-[10px] text-emerald-400">/ cel: {contract.level + 6}</span>
+              <span className="text-[9px] text-emerald-400">/ cel: {contract.level + 6}</span>
             )}
           </div>
 
           {/* Contract badge */}
-          <div className="px-2 py-0.5 bg-amber-500/20 border border-amber-400/40 rounded-lg text-amber-300 font-black text-xs flex items-center gap-1">
+          <div className="px-1.5 py-0.5 bg-amber-500/20 border border-amber-400/40 rounded text-amber-300 font-black text-[10px] sm:text-xs flex items-center gap-1">
             <span>Kontrakt:</span>
             <span className="text-white">{formatContractString(contract)}</span>
-            <span className="text-amber-400 text-[10px]">({contract.declarer})</span>
+            <span className="text-amber-400 text-[9px]">({contract.declarer})</span>
           </div>
 
           {/* E-W tricks */}
-          <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-lg ${
+          <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${
             (mySeat === 'E' || mySeat === 'W') ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300' : 'text-slate-300'
           }`}>
-            <span className="text-[11px] font-semibold text-slate-400">
+            <span className="text-[10px] font-semibold text-slate-400">
               {(mySeat === 'E' || mySeat === 'W') ? 'My (E-W):' : 'Para E-W:'}
             </span>
-            <span className="text-base sm:text-lg font-black text-white font-mono">{tricksWonEW}</span>
+            <span className="text-sm sm:text-base font-black text-white font-mono">{tricksWonEW}</span>
             {(contract.declarer === 'E' || contract.declarer === 'W') && (
-              <span className="text-[10px] text-emerald-400">/ cel: {contract.level + 6}</span>
+              <span className="text-[9px] text-emerald-400">/ cel: {contract.level + 6}</span>
             )}
           </div>
         </div>
       )}
 
       {/* MIDDLE SECTION: WEST, FELT TABLE (TRICK / AUCTION), EAST */}
-      <div className="flex-1 flex items-center justify-between my-1 sm:my-2 relative">
+      <div className="flex-1 min-h-0 flex items-center justify-between my-0.5 sm:my-1 relative overflow-hidden">
         {/* WEST SEAT */}
-        <div className="w-16 sm:w-24 flex flex-col items-center justify-center">
-          <div className={`px-2 py-1 rounded-lg text-center text-xs font-bold border transition ${
+        <div className="w-14 sm:w-20 flex flex-col items-center justify-center shrink-0">
+          <div className={`px-2 py-0.5 rounded-lg text-center text-[11px] sm:text-xs font-bold border transition ${
             currentTurn === 'W' || currentBidder === 'W'
               ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
               : 'bg-slate-900/80 text-slate-300 border-slate-700'
           }`}>
             W: {seats.W ? seats.W.name : 'Pusto'}
-            {declarerSeat === 'W' && <span className="block text-[10px]">(R)</span>}
-            {dummySeat === 'W' && <span className="block text-[10px]">(D)</span>}
+            {declarerSeat === 'W' && <span className="block text-[9px]">(R)</span>}
+            {dummySeat === 'W' && <span className="block text-[9px]">(D)</span>}
           </div>
         </div>
 
@@ -296,20 +296,20 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               onCollectTrick();
             }
           }}
-          className={`flex-1 max-w-xl mx-2 bg-felt/90 border-4 border-amber-900/40 rounded-3xl p-2 sm:p-4 shadow-inner relative min-h-[170px] sm:min-h-[230px] flex flex-col items-center justify-center ${
+          className={`flex-1 max-w-xl mx-1 sm:mx-2 bg-felt/90 border-2 sm:border-4 border-amber-900/40 rounded-2xl p-1 sm:p-2 shadow-inner relative min-h-[110px] sm:min-h-[150px] max-h-[150px] sm:max-h-[200px] flex flex-col items-center justify-center ${
             currentTrick.cards.length === 4 ? 'cursor-pointer' : ''
           }`}
         >
           {/* Phase: BIDDING */}
           {phase === 'BIDDING' && (
-            <div className="w-full space-y-2">
+            <div className="w-full space-y-1">
               <BiddingTray dealer={dealer} bids={bids} />
             </div>
           )}
 
           {/* Phase: PLAYING or BOARD_RESULT (Trick cards in cross orientation) */}
           {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && (
-            <div className="relative w-48 h-48 sm:w-60 sm:h-60 flex items-center justify-center">
+            <div className="relative w-32 h-32 sm:w-44 sm:h-44 flex items-center justify-center">
               {/* Winner banner if trick completed (4 cards) - Clickable to collect trick */}
               {currentTrick.cards.length === 4 && currentTrick.winnerSeat && (
                 <div
@@ -317,11 +317,11 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
                     e.stopPropagation();
                     if (onCollectTrick) onCollectTrick();
                   }}
-                  className="absolute -top-4 z-30 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs sm:text-sm px-4 py-1.5 rounded-full shadow-2xl border-2 border-amber-100 animate-pulse cursor-pointer flex items-center gap-2"
+                  className="absolute -top-3 z-30 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[10px] sm:text-xs px-3 py-1 rounded-full shadow-2xl border border-amber-100 animate-pulse cursor-pointer flex items-center gap-1.5"
                 >
                   <span>🎉 Lewę bierze: {SEAT_NAMES[currentTrick.winnerSeat]}</span>
-                  <span className="text-[11px] bg-slate-950 text-amber-300 px-2.5 py-0.5 rounded-full font-bold">
-                    Dotknij ekran, aby zebrać lewę 👉
+                  <span className="text-[9px] bg-slate-950 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                    Dotknij ekran 👉
                   </span>
                 </div>
               )}
@@ -329,30 +329,30 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               {/* North Card */}
               {getPlayedCardForSeat('N') && (
                 <div className="absolute top-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('N')!.card} size="md" isPlayable={false} />
+                  <CardView card={getPlayedCardForSeat('N')!.card} size="sm" isPlayable={false} />
                 </div>
               )}
               {/* South Card */}
               {getPlayedCardForSeat('S') && (
                 <div className="absolute bottom-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('S')!.card} size="md" isPlayable={false} />
+                  <CardView card={getPlayedCardForSeat('S')!.card} size="sm" isPlayable={false} />
                 </div>
               )}
               {/* West Card */}
               {getPlayedCardForSeat('W') && (
                 <div className="absolute left-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('W')!.card} size="md" isPlayable={false} />
+                  <CardView card={getPlayedCardForSeat('W')!.card} size="sm" isPlayable={false} />
                 </div>
               )}
               {/* East Card */}
               {getPlayedCardForSeat('E') && (
                 <div className="absolute right-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('E')!.card} size="md" isPlayable={false} />
+                  <CardView card={getPlayedCardForSeat('E')!.card} size="sm" isPlayable={false} />
                 </div>
               )}
 
               {/* Center trick summary badge */}
-              <div className="bg-slate-950/80 border border-slate-700 px-2.5 py-1 rounded-full text-[11px] text-slate-300 font-semibold backdrop-blur text-center pointer-events-none">
+              <div className="bg-slate-950/80 border border-slate-700 px-2 py-0.5 rounded-full text-[10px] text-slate-300 font-semibold backdrop-blur text-center pointer-events-none">
                 {contract && formatContractString(contract)}
               </div>
             </div>
@@ -360,23 +360,22 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         </div>
 
         {/* EAST SEAT */}
-        <div className="w-16 sm:w-24 flex flex-col items-center justify-center">
-          <div className={`px-2 py-1 rounded-lg text-center text-xs font-bold border transition ${
+        <div className="w-14 sm:w-20 flex flex-col items-center justify-center shrink-0">
+          <div className={`px-2 py-0.5 rounded-lg text-center text-[11px] sm:text-xs font-bold border transition ${
             currentTurn === 'E' || currentBidder === 'E'
               ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
               : 'bg-slate-900/80 text-slate-300 border-slate-700'
           }`}>
             E: {seats.E ? seats.E.name : 'Pusto'}
-            {declarerSeat === 'E' && <span className="block text-[10px]">(R)</span>}
-            {dummySeat === 'E' && <span className="block text-[10px]">(D)</span>}
+            {declarerSeat === 'E' && <span className="block text-[9px]">(R)</span>}
+            {dummySeat === 'E' && <span className="block text-[9px]">(D)</span>}
           </div>
         </div>
       </div>
 
-
       {/* BOTTOM SECTION: SOUTH SEAT / BIDDING CONTROLS OR MY HAND */}
-      <div className="flex flex-col items-center w-full max-w-3xl mx-auto space-y-1.5">
-        <div className={`px-3 py-0.5 rounded-full text-xs font-bold border transition ${
+      <div className="flex flex-col items-center w-full max-w-3xl mx-auto space-y-0.5 sm:space-y-1 shrink-0">
+        <div className={`px-3 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border transition shrink-0 ${
           currentTurn === 'S' || currentBidder === 'S'
             ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
             : 'bg-slate-900/80 text-slate-300 border-slate-700'
@@ -401,15 +400,15 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
         {/* Player's Cards in Hand */}
         {myHand && myHand.length > 0 && (
-          <div className="w-full bg-slate-900/60 backdrop-blur rounded-2xl p-1.5 sm:p-2 border border-slate-800 shadow-xl">
-            <div className="flex items-center justify-between text-xs text-slate-400 px-2 pb-1">
+          <div className="w-full bg-slate-900/80 backdrop-blur rounded-xl p-1 sm:p-1.5 border border-slate-800 shadow-xl shrink-0">
+            <div className="flex items-center justify-between text-[11px] text-slate-400 px-2 pb-0.5 leading-none">
               <span>Twoja ręka ({mySeat ? SEAT_NAMES[mySeat] : 'Widz'})</span>
               {isMyTurn && phase === 'PLAYING' && (
-                <span className="text-amber-400 font-bold animate-pulse">Twoja tura do zagrania karty!</span>
+                <span className="text-amber-400 font-bold animate-pulse text-[10px]">Twoja tura do zagrania karty!</span>
               )}
             </div>
 
-            <div className="flex items-center justify-center gap-1 sm:gap-1.5 overflow-x-auto py-1">
+            <div className="flex items-center justify-center gap-1 sm:gap-1.5 overflow-x-auto py-0.5">
               {myHand.map((card) => {
                 const isPlayable = isMyTurn && phase === 'PLAYING' && isCardLegal(card, myHand, leadCardSuit);
                 return (

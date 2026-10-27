@@ -37,12 +37,12 @@ export const CardView: React.FC<CardViewProps> = ({
   const textColor = SUIT_TEXT_COLORS[card.suit];
   const rankLabel = card.rank === 'T' ? '10' : card.rank;
 
-  // Exact sizes: 'dummy' is calibrated to be exactly ~10% smaller than 'md' (user's hand)
+  // Calibrated responsive sizes: 'dummy' is exactly ~10% smaller than 'md' (hand)
   const sizeClasses = {
-    sm: 'w-8 h-12 text-[10px] rounded-md',
-    dummy: 'w-[44px] h-[66px] sm:w-[56px] sm:h-[84px] text-xs sm:text-sm rounded-lg',
-    md: 'w-12 h-18 sm:w-16 sm:h-24 text-xs sm:text-base rounded-lg',
-    lg: 'w-14 h-21 sm:w-18 sm:h-27 text-sm sm:text-lg rounded-xl',
+    sm: 'w-7 h-10 sm:w-9 sm:h-13 text-[9px] sm:text-[10px] rounded',
+    dummy: 'w-[39px] h-[58px] sm:w-[48px] sm:h-[72px] text-[10px] sm:text-xs rounded-md',
+    md: 'w-11 h-16 sm:w-14 sm:h-20 text-xs sm:text-sm rounded-lg',
+    lg: 'w-13 h-19 sm:w-16 sm:h-24 text-sm sm:text-base rounded-xl',
   }[size];
 
   // Distinct interactive states without blurry shadows
