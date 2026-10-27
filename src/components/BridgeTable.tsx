@@ -4,6 +4,7 @@ import { CardView } from './CardView';
 import { BiddingBox } from './BiddingBox';
 import { BiddingTray } from './BiddingTray';
 import { DdsView } from './DdsView';
+import { DummyHandView } from './DummyHandView';
 import { DdsTableResult } from '../logic/dds';
 import { isCardLegal } from '../logic/play';
 import { formatContractString } from '../logic/scoring';
@@ -87,8 +88,23 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   const totalPlayersInRoom = connectedCount !== undefined ? connectedCount : Math.max(connectedPlayers.length, seatedCount);
   const unseatedList = connectedPlayers.filter(p => !p.seat);
 
+  const [showResultModal, setShowResultModal] = React.useState(false);
+
+  React.useEffect(() => {
+    if (phase !== 'BOARD_RESULT') {
+      setShowResultModal(false);
+    }
+  }, [phase]);
+
   return (
-    <div className="relative w-full h-full flex flex-col justify-between p-2 sm:p-4 select-none overflow-hidden">
+    <div
+      onClick={() => {
+        if (phase === 'BOARD_RESULT' && !showResultModal) {
+          setShowResultModal(true);
+        }
+      }}
+      className="relative w-full h-full flex flex-col justify-between p-1.5 sm:p-3 select-none overflow-hidden"
+    >
       {/* LOBBY OVERLAY / PHASE */}
       {phase === 'LOBBY' && (
         <div className="absolute inset-0 z-30 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
@@ -236,7 +252,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
       )}
 
       {/* RESULT MODAL OVERLAY */}
-      {phase === 'BOARD_RESULT' && lastResult && (
+      {phase === 'BOARD_RESULT' && lastResult && showResultModal && (
         <div className="absolute inset-0 z-40 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-fadeIn overflow-y-auto">
           <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl p-4 sm:p-5 max-w-lg w-full text-center shadow-2xl space-y-3.5 my-auto max-h-[95vh] overflow-y-auto">
             <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Rozdanie zakończone</span>
@@ -277,21 +293,46 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               wonEW={lastResult.tricksWonEW}
             />
 
-            <button
-              type="button"
-              onClick={onNextBoard}
-              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Następne Rozdanie (#{state.boardNumber + 1})
-            </button>
+            <div className="flex gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => setShowResultModal(false)}
+                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition border border-slate-700"
+              >
+                👁️ Podejrzyj stół
+              </button>
+              <button
+                type="button"
+                onClick={onNextBoard}
+                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-1.5"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Następne (#{state.boardNumber + 1})
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* TOP: NORTH SEAT & DUMMY PREVIEW IF NORTH IS DUMMY */}
-      <div className="flex flex-col items-center">
-        <div className={`px-3 py-1 rounded-full text-xs font-bold border transition ${
+      {/* RESULT BANNER (When table is previewed after board finishes) */}
+      {phase === 'BOARD_RESULT' && lastResult && !showResultModal && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            setShowResultModal(true);
+          }}
+          className="bg-emerald-600/90 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-center cursor-pointer transition shadow-lg border border-emerald-400/50 mb-1 flex items-center justify-between text-xs sm:text-sm animate-pulse"
+        >
+          <span className="font-bold">🏁 Koniec rozdania: {lastResult.resultDetail}</span>
+          <span className="bg-emerald-950/80 px-2 py-0.5 rounded-lg text-[11px] font-semibold text-emerald-200">
+            Dotknij, aby otworzyć protokół & DDS 📊
+          </span>
+        </div>
+      )}
+
+      {/* TOP: NORTH SEAT & DUMMY CARDS (ABOVE THE TABLE) */}
+      <div className="flex flex-col items-center gap-1">
+        <div className={`px-3 py-0.5 rounded-full text-xs font-bold border transition ${
           currentTurn === 'N' || currentBidder === 'N'
             ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
             : 'bg-slate-900/80 text-slate-300 border-slate-700'
@@ -300,13 +341,26 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           {declarerSeat === 'N' && ' (Rozgrywający)'}
           {dummySeat === 'N' && ' (Dziadek)'}
         </div>
+
+        {/* DUMMY CARDS (If exposed) - Positioned ABOVE THE FELT TABLE */}
+        {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat && dummyHand && dummyHand.length > 0 && (
+          <div className="w-full max-w-xl mx-auto px-1">
+            <DummyHandView
+              dummySeat={dummySeat}
+              dummyHand={dummyHand}
+              canIPlayDummy={canIPlayDummy}
+              leadCardSuit={leadCardSuit}
+              onPlayCard={onPlayCard}
+            />
+          </div>
+        )}
       </div>
 
       {/* MIDDLE SECTION: WEST, FELT TABLE (TRICK / AUCTION), EAST */}
-      <div className="flex-1 flex items-center justify-between my-2 relative">
+      <div className="flex-1 flex items-center justify-between my-1 sm:my-2 relative">
         {/* WEST SEAT */}
         <div className="w-16 sm:w-24 flex flex-col items-center justify-center">
-          <div className={`px-2.5 py-1 rounded-lg text-center text-xs font-bold border transition ${
+          <div className={`px-2 py-1 rounded-lg text-center text-xs font-bold border transition ${
             currentTurn === 'W' || currentBidder === 'W'
               ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
               : 'bg-slate-900/80 text-slate-300 border-slate-700'
@@ -318,7 +372,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         </div>
 
         {/* FELT CENTER */}
-        <div className="flex-1 max-w-xl mx-2 bg-felt/90 border-4 border-amber-900/40 rounded-3xl p-3 sm:p-5 shadow-inner relative min-h-[220px] sm:min-h-[260px] flex flex-col items-center justify-center">
+        <div className="flex-1 max-w-xl mx-2 bg-felt/90 border-4 border-amber-900/40 rounded-3xl p-2 sm:p-4 shadow-inner relative min-h-[170px] sm:min-h-[230px] flex flex-col items-center justify-center">
           {/* Phase: BIDDING */}
           {phase === 'BIDDING' && (
             <div className="w-full space-y-2">
@@ -326,9 +380,9 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             </div>
           )}
 
-          {/* Phase: PLAYING (Trick cards in cross orientation) */}
-          {phase === 'PLAYING' && (
-            <div className="relative w-48 h-48 sm:w-56 sm:h-56 flex items-center justify-center">
+          {/* Phase: PLAYING or BOARD_RESULT (Trick cards in cross orientation) */}
+          {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && (
+            <div className="relative w-44 h-44 sm:w-56 sm:h-56 flex items-center justify-center">
               {/* North Card */}
               {getPlayedCardForSeat('N') && (
                 <div className="absolute top-0 animate-scaleUp">
@@ -364,7 +418,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
         {/* EAST SEAT */}
         <div className="w-16 sm:w-24 flex flex-col items-center justify-center">
-          <div className={`px-2.5 py-1 rounded-lg text-center text-xs font-bold border transition ${
+          <div className={`px-2 py-1 rounded-lg text-center text-xs font-bold border transition ${
             currentTurn === 'E' || currentBidder === 'E'
               ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
               : 'bg-slate-900/80 text-slate-300 border-slate-700'
@@ -376,31 +430,6 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         </div>
       </div>
 
-      {/* DUMMY CARDS (If exposed) */}
-      {phase === 'PLAYING' && dummySeat && dummyHand && dummyHand.length > 0 && (
-        <div className="mb-2 bg-slate-950/80 border border-slate-800 rounded-xl p-2 max-w-2xl mx-auto w-full">
-          <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-1 px-1">
-            <span>Karty Dziadka ({SEAT_NAMES[dummySeat]})</span>
-            {canIPlayDummy && <span className="text-amber-400 animate-pulse font-bold">Twoja tura: zagraj z Dziadka!</span>}
-          </div>
-          <div className="flex items-center justify-center gap-1 sm:gap-1.5 overflow-x-auto py-1">
-            {dummyHand.map((card) => {
-              const isPlayable = canIPlayDummy && isCardLegal(card, dummyHand, leadCardSuit);
-              return (
-                <CardView
-                  key={card.id}
-                  card={card}
-                  size="sm"
-                  isPlayable={isPlayable}
-                  onClick={() => {
-                    if (canIPlayDummy && isPlayable) onPlayCard(card.id);
-                  }}
-                />
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* BOTTOM SECTION: SOUTH SEAT / BIDDING CONTROLS OR MY HAND */}
       <div className="flex flex-col items-center w-full max-w-3xl mx-auto space-y-1.5">
