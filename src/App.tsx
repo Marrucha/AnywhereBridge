@@ -79,6 +79,7 @@ export const App: React.FC = () => {
     stopBotGame,
     makeBotGameBid,
     playBotGameCard,
+    collectCompletedTrick,
     nextBotGameBoard,
   } = useLocalBotGame(mySeat, playerName, (record) => {
     const updated = saveScoreRecord(record);
@@ -242,6 +243,14 @@ export const App: React.FC = () => {
       playBotGameCard(cardId);
     } else {
       sendMessage({ type: 'play_card', cardId });
+    }
+  };
+
+  const handleCollectTrick = () => {
+    if (isBotGame) {
+      collectCompletedTrick();
+    } else {
+      sendMessage({ type: 'collect_trick' });
     }
   };
 
@@ -412,6 +421,7 @@ export const App: React.FC = () => {
             onStartGame={handleStartGame}
             onMakeBid={handleMakeBid}
             onPlayCard={handlePlayCard}
+            onCollectTrick={handleCollectTrick}
             onNextBoard={handleNextBoard}
             onResetRoom={handleResetRoom}
             onOpenQR={() => setIsQROpen(true)}

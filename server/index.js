@@ -633,42 +633,46 @@ function handleMessage(ws, msg) {
       if (winnerSeat === 'N' || winnerSeat === 'S') room.tricksWonNS += 1;
       else room.tricksWonEW += 1;
 
-      // Broadcast trick completed
+      // Broadcast trick completed with 4 cards visible
       broadcastRoom(info.roomId);
-
-      // Brief delay before clearing trick
-      setTimeout(() => {
-        // Check if all 13 tricks played
-        if (room.pastTricks.length === 13) {
-          const score = calculateScore(room.contract, room.tricksWonNS, room.tricksWonEW, room.vulnerability);
-          room.lastResult = {
-            id: `b_${Date.now()}`,
-            boardNumber: room.boardNumber,
-            dealer: room.dealer,
-            vulnerability: room.vulnerability,
-            contractStr: formatContract(room.contract),
-            declarer: room.contract.declarer,
-            tricksWonNS: room.tricksWonNS,
-            tricksWonEW: room.tricksWonEW,
-            scoreNS: score.scoreNS,
-            scoreEW: score.scoreEW,
-            resultDetail: score.resultDetail,
-            timestamp: Date.now(),
-          };
-          room.history.unshift(room.lastResult);
-          room.phase = 'BOARD_RESULT';
-        } else {
-          room.currentTurn = winnerSeat;
-          room.currentTrick = { leadSeat: winnerSeat, cards: [] };
-        }
-        broadcastRoom(info.roomId);
-      }, 1200);
       return;
     }
 
     // Advance to next player
     room.currentTurn = nextSeat(room.currentTurn);
     broadcastRoom(info.roomId);
+    return;
+  }
+
+  if (msg.type === 'collect_trick') {
+    if (room.phase === 'PLAYING' && room.currentTrick && room.currentTrick.cards.length === 4) {
+      const winnerSeat = room.currentTrick.winnerSeat || determineWinner(room.currentTrick, room.contract.suit);
+      
+      // Check if all 13 tricks played
+      if (room.pastTricks.length === 13) {
+        const score = calculateScore(room.contract, room.tricksWonNS, room.tricksWonEW, room.vulnerability);
+        room.lastResult = {
+          id: `b_${Date.now()}`,
+          boardNumber: room.boardNumber,
+          dealer: room.dealer,
+          vulnerability: room.vulnerability,
+          contractStr: formatContract(room.contract),
+          declarer: room.contract.declarer,
+          tricksWonNS: room.tricksWonNS,
+          tricksWonEW: room.tricksWonEW,
+          scoreNS: score.scoreNS,
+          scoreEW: score.scoreEW,
+          resultDetail: score.resultDetail,
+          timestamp: Date.now(),
+        };
+        room.history.unshift(room.lastResult);
+        room.phase = 'BOARD_RESULT';
+      } else {
+        room.currentTurn = winnerSeat;
+        room.currentTrick = { leadSeat: winnerSeat, cards: [] };
+      }
+      broadcastRoom(info.roomId);
+    }
     return;
   }
 

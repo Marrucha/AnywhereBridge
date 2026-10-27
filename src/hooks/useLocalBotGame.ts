@@ -19,6 +19,7 @@ export interface UseLocalBotGameResult {
   stopBotGame: () => void;
   makeBotGameBid: (bid: any) => void;
   playBotGameCard: (cardId: string) => void;
+  collectCompletedTrick: () => void;
   nextBotGameBoard: () => void;
 }
 
@@ -89,37 +90,39 @@ export function useLocalBotGame(
     }
   };
 
+  const collectCompletedTrick = () => {
+    if (!localSession) return;
+    const { state } = localSession;
+    if (state.phase === 'PLAYING' && state.currentTrick.cards.length === 4) {
+      setLocalSession(prev => {
+        if (!prev) return null;
+        const next = resolveCompletedTrick(prev);
+        if (next.state.lastResult && onScoreRecorded) {
+          onScoreRecorded(next.state.lastResult);
+        }
+        return next;
+      });
+    }
+  };
+
   const nextBotGameBoard = () => {
     if (!localSession) return;
     startBotGame(activeSeat, localSession.state.boardNumber + 1);
   };
 
-  // Bot automation loop & Trick display pause
+  // Bot automation loop: waits until user clicks on screen to collect 4-card tricks
   useEffect(() => {
     if (!localSession || !localSession.isBotGame) return;
     const { state } = localSession;
 
     if (state.phase === 'BOARD_RESULT') return;
 
-    // If trick has all 4 cards, keep them visible for 1300ms before collecting
+    // If trick has all 4 cards, DO NOT auto-collect. Cards remain on table until user clicks screen!
     if (state.phase === 'PLAYING' && state.currentTrick.cards.length === 4) {
-      botTimerRef.current = setTimeout(() => {
-        setLocalSession(prev => {
-          if (!prev) return null;
-          const next = resolveCompletedTrick(prev);
-          if (next.state.lastResult && onScoreRecorded) {
-            onScoreRecorded(next.state.lastResult);
-          }
-          return next;
-        });
-      }, 1300);
-
-      return () => {
-        if (botTimerRef.current) clearTimeout(botTimerRef.current);
-      };
+      return;
     }
 
-    // If currentTurn is null (e.g. during trick resolution pause), wait
+    // If currentTurn is null, wait
     if (state.currentTurn === null) return;
 
     const botAction = getBotNextAction(localSession, activeSeat);
@@ -162,6 +165,7 @@ export function useLocalBotGame(
     stopBotGame,
     makeBotGameBid,
     playBotGameCard,
+    collectCompletedTrick,
     nextBotGameBoard,
   };
 }

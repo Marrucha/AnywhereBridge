@@ -23,6 +23,7 @@ interface BridgeTableProps {
   onResetRoom: () => void;
   onOpenQR: () => void;
   onStartBotGame?: () => void;
+  onCollectTrick?: () => void;
   isBotGame?: boolean;
   ddsResult?: DdsTableResult | null;
   ddsLoading?: boolean;
@@ -46,6 +47,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   onNextBoard,
   onOpenQR,
   onStartBotGame,
+  onCollectTrick,
   isBotGame = false,
   ddsResult = null,
   ddsLoading = false,
@@ -102,9 +104,11 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
       onClick={() => {
         if (phase === 'BOARD_RESULT' && !showResultModal) {
           setShowResultModal(true);
+        } else if (phase === 'PLAYING' && currentTrick.cards.length === 4 && onCollectTrick) {
+          onCollectTrick();
         }
       }}
-      className="relative w-full h-full flex flex-col justify-between p-1.5 sm:p-3 select-none overflow-hidden"
+      className="relative w-full h-full flex flex-col justify-between p-1.5 sm:p-3 select-none overflow-hidden cursor-default"
     >
       {/* LOBBY OVERLAY / PHASE */}
       {phase === 'LOBBY' && (
@@ -286,7 +290,16 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         </div>
 
         {/* FELT CENTER */}
-        <div className="flex-1 max-w-xl mx-2 bg-felt/90 border-4 border-amber-900/40 rounded-3xl p-2 sm:p-4 shadow-inner relative min-h-[170px] sm:min-h-[230px] flex flex-col items-center justify-center">
+        <div
+          onClick={() => {
+            if (phase === 'PLAYING' && currentTrick.cards.length === 4 && onCollectTrick) {
+              onCollectTrick();
+            }
+          }}
+          className={`flex-1 max-w-xl mx-2 bg-felt/90 border-4 border-amber-900/40 rounded-3xl p-2 sm:p-4 shadow-inner relative min-h-[170px] sm:min-h-[230px] flex flex-col items-center justify-center ${
+            currentTrick.cards.length === 4 ? 'cursor-pointer' : ''
+          }`}
+        >
           {/* Phase: BIDDING */}
           {phase === 'BIDDING' && (
             <div className="w-full space-y-2">
@@ -297,10 +310,19 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           {/* Phase: PLAYING or BOARD_RESULT (Trick cards in cross orientation) */}
           {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && (
             <div className="relative w-48 h-48 sm:w-60 sm:h-60 flex items-center justify-center">
-              {/* Winner banner if trick completed (4 cards) */}
+              {/* Winner banner if trick completed (4 cards) - Clickable to collect trick */}
               {currentTrick.cards.length === 4 && currentTrick.winnerSeat && (
-                <div className="absolute -top-3 z-30 bg-amber-400 text-slate-950 font-black text-xs px-3 py-1 rounded-full shadow-lg border border-amber-200 animate-bounce">
-                  🎉 Lewę bierze: {SEAT_NAMES[currentTrick.winnerSeat]}
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onCollectTrick) onCollectTrick();
+                  }}
+                  className="absolute -top-4 z-30 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs sm:text-sm px-4 py-1.5 rounded-full shadow-2xl border-2 border-amber-100 animate-pulse cursor-pointer flex items-center gap-2"
+                >
+                  <span>🎉 Lewę bierze: {SEAT_NAMES[currentTrick.winnerSeat]}</span>
+                  <span className="text-[11px] bg-slate-950 text-amber-300 px-2.5 py-0.5 rounded-full font-bold">
+                    Dotknij ekran, aby zebrać lewę 👉
+                  </span>
                 </div>
               )}
 
