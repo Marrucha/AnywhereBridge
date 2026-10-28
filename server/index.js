@@ -80,7 +80,7 @@ function shuffle(arr) {
 }
 
 function sortHand(cards) {
-  const suitOrder = { S: 0, H: 1, D: 2, C: 3 };
+  const suitOrder = { S: 0, H: 1, C: 2, D: 3 };
   return [...cards].sort((a, b) => {
     if (a.suit !== b.suit) return suitOrder[a.suit] - suitOrder[b.suit];
     return RANK_VALUES[b.rank] - RANK_VALUES[a.rank];
@@ -258,6 +258,8 @@ class BridgeRoom {
     this.tricksWonEW = 0;
     this.currentTurn = null;
     this.lastResult = null;
+    this.undoRequest = null;
+    this.undoNotice = null;
   }
 
   startBoard() {
@@ -417,6 +419,8 @@ function broadcastRoom(roomId) {
           tricksWonNS: room.tricksWonNS,
           tricksWonEW: room.tricksWonEW,
           currentTurn: room.currentTurn,
+          undoRequest: room.undoRequest,
+          undoNotice: room.undoNotice,
           lastResult: room.lastResult,
           history: room.history,
           hostId: room.hostId,
@@ -545,7 +549,9 @@ function handleMessage(ws, msg) {
   }
 
   if (msg.type === 'make_bid') {
+    if (room.undoRequest) return;
     if (room.phase !== 'BIDDING' || room.currentBidder !== info.seat) return;
+    room.undoNotice = null;
     const bid = { ...msg.bid, bidder: info.seat };
     room.bids.push(bid);
 
@@ -640,7 +646,9 @@ function handleMessage(ws, msg) {
   }
 
   if (msg.type === 'play_card') {
+    if (room.undoRequest) return;
     if (room.phase !== 'PLAYING') return;
+    room.undoNotice = null;
 
     // If a 4-card trick is waiting to be collected, collect it first
     if (room.currentTrick && room.currentTrick.cards.length === 4) {
@@ -697,11 +705,51 @@ function handleMessage(ws, msg) {
   }
 
   if (msg.type === 'collect_trick') {
+    if (room.undoRequest) return;
     if (room.phase === 'PLAYING' && room.currentTrick && room.currentTrick.cards.length === 4) {
       collectRoomTrick(room);
       broadcastRoom(info.roomId);
       scheduleBotTurn(info.roomId);
     }
+    return;
+  }
+
+  if (msg.type === 'request_undo') {
+    if (!info.seat || room.undoRequest) return;
+    const canUndo =
+      (room.phase === 'BIDDING' && room.bids.length > 0) ||
+      (room.phase === 'PLAYING' && (room.currentTrick.cards.length > 0 || room.pastTricks.length > 0));
+    if (!canUndo) return;
+    if (room.botTimeout) clearTimeout(room.botTimeout);
+
+    const opp1 = nextSeat(info.seat);
+    const opp2 = nextSeat(partnerSeat(info.seat));
+    if (room.seats[opp1]?.isBot && room.seats[opp2]?.isBot) {
+      performRoomUndo(room);
+      room.undoNotice = '✅ Cofnięto ostatni ruch / kartę.';
+      broadcastRoom(info.roomId);
+      scheduleBotTurn(info.roomId);
+    } else {
+      room.undoRequest = { requesterSeat: info.seat, requesterName: info.playerName || info.seat };
+      room.undoNotice = null;
+      broadcastRoom(info.roomId);
+    }
+    return;
+  }
+
+  if (msg.type === 'respond_undo') {
+    if (!info.seat || !room.undoRequest) return;
+    if (getPartnership(info.seat) === getPartnership(room.undoRequest.requesterSeat)) return;
+    const accept = !!msg.accept;
+    room.undoRequest = null;
+    if (accept) {
+      performRoomUndo(room);
+      room.undoNotice = '✅ Cofnięto ruch (zaakceptowano).';
+    } else {
+      room.undoNotice = '❌ Prośba o cofnięcie została odrzucona.';
+    }
+    broadcastRoom(info.roomId);
+    scheduleBotTurn(info.roomId);
     return;
   }
 
@@ -752,10 +800,36 @@ function collectRoomTrick(room) {
   }
 }
 
+function performRoomUndo(room) {
+  if (room.phase === 'BIDDING' && room.bids.length > 0) {
+    const lastBid = room.bids.pop();
+    room.currentBidder = lastBid.bidder || room.dealer;
+    return;
+  }
+  if (room.phase === 'PLAYING') {
+    if (room.currentTrick.cards.length === 0 && room.pastTricks.length > 0) {
+      const lastTrick = room.pastTricks.pop();
+      if (lastTrick.winnerSeat === 'N' || lastTrick.winnerSeat === 'S') room.tricksWonNS = Math.max(0, room.tricksWonNS - 1);
+      else if (lastTrick.winnerSeat === 'E' || lastTrick.winnerSeat === 'W') room.tricksWonEW = Math.max(0, room.tricksWonEW - 1);
+      room.currentTrick = { leadSeat: lastTrick.leadSeat, cards: [...lastTrick.cards] };
+    }
+    if (room.currentTrick.cards.length > 0) {
+      const lastPlayed = room.currentTrick.cards.pop();
+      delete room.currentTrick.winnerSeat;
+      if (room.hands[lastPlayed.playedBy]) {
+        room.hands[lastPlayed.playedBy] = sortHand([...room.hands[lastPlayed.playedBy], lastPlayed.card]);
+      }
+      room.currentTurn = lastPlayed.playedBy;
+      room.openingLeadMade = room.pastTricks.length > 0 || room.currentTrick.cards.length > 0;
+    }
+  }
+}
+
 function scheduleBotTurn(roomId) {
   const room = rooms.get(roomId);
   if (!room) return;
   if (room.botTimeout) clearTimeout(room.botTimeout);
+  if (room.undoRequest) return;
 
   if (room.phase === 'PLAYING' && room.currentTrick && room.currentTrick.cards.length === 4) {
     room.botTimeout = setTimeout(() => {
@@ -764,7 +838,7 @@ function scheduleBotTurn(roomId) {
         broadcastRoom(roomId);
         scheduleBotTurn(roomId);
       }
-    }, 1150);
+    }, 5000);
     return;
   }
 

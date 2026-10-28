@@ -13,6 +13,10 @@ export default {
           dark: '#081c15',
         },
       },
+      screens: {
+        land: { raw: '(orientation: landscape) and (max-height: 560px)' },
+        desk: { raw: '(min-width: 640px) and (min-height: 561px)' },
+      },
     },
   },
   plugins: [],

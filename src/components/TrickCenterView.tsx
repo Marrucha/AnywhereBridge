@@ -100,29 +100,29 @@ export const TrickCenterView: React.FC<TrickCenterViewProps> = ({
 
   if (phase === 'PLAYING') {
     return (
-      <div className="relative w-44 h-44 sm:w-56 sm:h-56 flex items-center justify-center">
-        {/* Top (Partner) Card */}
+      <div className="relative w-full h-full min-w-[210px] max-w-[340px] desk:max-w-[420px] min-h-[190px] land:min-h-[150px] desk:min-h-[240px] flex items-center justify-center">
+        {/* Top (Partner) Card - exact same size="player" as player's hand */}
         {getPlayedCardForSeat(topSeat) && (
-          <div className="absolute top-0 animate-scaleUp z-10">
-            <CardView card={getPlayedCardForSeat(topSeat)!.card} size="md" isPlayable={false} />
+          <div className="absolute top-0.5 animate-scaleUp z-10 pointer-events-none">
+            <CardView card={getPlayedCardForSeat(topSeat)!.card} size="player" isPlayable={false} />
           </div>
         )}
-        {/* Bottom (My) Card */}
+        {/* Bottom (My) Card - exact same size="player" as player's hand */}
         {getPlayedCardForSeat(bottomSeat) && (
-          <div className="absolute bottom-0 animate-scaleUp z-10">
-            <CardView card={getPlayedCardForSeat(bottomSeat)!.card} size="md" isPlayable={false} />
+          <div className="absolute bottom-0.5 animate-scaleUp z-20 pointer-events-none">
+            <CardView card={getPlayedCardForSeat(bottomSeat)!.card} size="player" isPlayable={false} />
           </div>
         )}
-        {/* Left Card */}
+        {/* Left Card - exact same size="player" as player's hand */}
         {getPlayedCardForSeat(leftSeat) && (
-          <div className="absolute left-0 animate-scaleUp z-10">
-            <CardView card={getPlayedCardForSeat(leftSeat)!.card} size="md" isPlayable={false} />
+          <div className="absolute left-1 sm:left-3 animate-scaleUp z-10 pointer-events-none">
+            <CardView card={getPlayedCardForSeat(leftSeat)!.card} size="player" isPlayable={false} />
           </div>
         )}
-        {/* Right Card */}
+        {/* Right Card - exact same size="player" as player's hand */}
         {getPlayedCardForSeat(rightSeat) && (
-          <div className="absolute right-0 animate-scaleUp z-10">
-            <CardView card={getPlayedCardForSeat(rightSeat)!.card} size="md" isPlayable={false} />
+          <div className="absolute right-1 sm:right-3 animate-scaleUp z-10 pointer-events-none">
+            <CardView card={getPlayedCardForSeat(rightSeat)!.card} size="player" isPlayable={false} />
           </div>
         )}
 

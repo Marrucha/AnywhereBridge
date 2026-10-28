@@ -427,3 +427,61 @@ export function resolveCompletedTrick(session: LocalGameSession): LocalGameSessi
   }
 }
 
+export function undoLocalMove(session: LocalGameSession): LocalGameSession {
+  const { state, fullHands } = session;
+  const humanSeat = session.mySeat || 'S';
+
+  if (state.phase === 'BIDDING' && state.bids.length > 0) {
+    const nextBids = [...state.bids];
+    let popped = nextBids.pop()!;
+    while (nextBids.length > 0 && popped.bidder !== humanSeat) {
+      popped = nextBids.pop()!;
+    }
+    return {
+      ...session,
+      state: {
+        ...state,
+        bids: nextBids,
+        currentBidder: popped.bidder || state.dealer,
+        undoNotice: `✅ Cofnięto odzywkę (${popped.bidder})`,
+      },
+    };
+  }
+
+  if (state.phase === 'PLAYING') {
+    const nextFullHands: Record<Seat, Card[]> = {
+      N: [...fullHands.N], E: [...fullHands.E], S: [...fullHands.S], W: [...fullHands.W],
+    };
+    let nextCurrentTrick: Trick = { leadSeat: state.currentTrick.leadSeat, cards: [...state.currentTrick.cards] };
+    const nextPastTricks = [...state.pastTricks];
+    let wonNS = state.tricksWonNS;
+    let wonEW = state.tricksWonEW;
+
+    if (nextCurrentTrick.cards.length === 0 && nextPastTricks.length > 0) {
+      const lastTrick = nextPastTricks.pop()!;
+      if (lastTrick.winnerSeat === 'N' || lastTrick.winnerSeat === 'S') wonNS = Math.max(0, wonNS - 1);
+      else if (lastTrick.winnerSeat === 'E' || lastTrick.winnerSeat === 'W') wonEW = Math.max(0, wonEW - 1);
+      nextCurrentTrick = { leadSeat: lastTrick.leadSeat, cards: [...lastTrick.cards] };
+    }
+
+    if (nextCurrentTrick.cards.length > 0) {
+      const lastPlayed = nextCurrentTrick.cards.pop()!;
+      nextFullHands[lastPlayed.playedBy] = sortHand([...nextFullHands[lastPlayed.playedBy], lastPlayed.card]);
+      const openingLeadMade = nextPastTricks.length > 0 || nextCurrentTrick.cards.length > 0;
+      const dummyHand = openingLeadMade && state.dummySeat ? nextFullHands[state.dummySeat] : null;
+      return {
+        ...session,
+        fullHands: nextFullHands,
+        state: {
+          ...state, hands: nextFullHands, myHand: nextFullHands[humanSeat] || [], dummyHand,
+          currentTrick: nextCurrentTrick, pastTricks: nextPastTricks, tricksWonNS: wonNS, tricksWonEW: wonEW,
+          currentTurn: lastPlayed.playedBy, openingLeadMade, undoNotice: `✅ Cofnięto kartę (${lastPlayed.playedBy})`,
+        },
+      };
+    }
+  }
+
+  return session;
+}
+
+

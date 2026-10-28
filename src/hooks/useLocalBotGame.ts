@@ -7,6 +7,7 @@ import {
   createLocalBotGame,
   getBotNextAction,
   resolveCompletedTrick,
+  undoLocalMove,
 } from '../logic/localGame';
 import { DdsTableResult, calculateDdsAnalysis } from '../logic/dds';
 
@@ -20,6 +21,7 @@ export interface UseLocalBotGameResult {
   makeBotGameBid: (bid: any) => void;
   playBotGameCard: (cardId: string) => void;
   collectCompletedTrick: () => void;
+  undoBotGameMove: () => void;
   nextBotGameBoard: (targetBoardNumber?: number) => void;
 }
 
@@ -63,8 +65,9 @@ export function useLocalBotGame(
   const startBotGame = (seat: Seat = activeSeat, boardNumber: number = 1) => {
     if (botTimerRef.current) clearTimeout(botTimerRef.current);
     const session = createLocalBotGame(boardNumber, seat, playerName);
+    setDdsResult(null);
+    setDdsLoading(false);
     setLocalSession(session);
-    triggerDds(session.fullHands, session.state.dealer, session.state.vulnerability);
   };
 
   const stopBotGame = () => {
@@ -114,6 +117,12 @@ export function useLocalBotGame(
     }
   };
 
+  const undoBotGameMove = () => {
+    if (!localSession) return;
+    if (botTimerRef.current) clearTimeout(botTimerRef.current);
+    setLocalSession(prev => (prev ? undoLocalMove(prev) : null));
+  };
+
   const nextBotGameBoard = (targetBoardNumber?: number) => {
     const humanSeat = localSession?.mySeat || activeSeat;
     const nextNum = targetBoardNumber !== undefined
@@ -130,16 +139,25 @@ export function useLocalBotGame(
     const { state } = localSession;
     const humanSeat = localSession.mySeat || activeSeat;
 
-    if (state.phase === 'BOARD_RESULT') return;
+    if (state.phase === 'BOARD_RESULT') {
+      if (!ddsResult && !ddsLoading) {
+        const ddsHands = localSession.dealHands || localSession.fullHands;
+        const t = setTimeout(() => {
+          triggerDds(ddsHands, state.dealer, state.vulnerability);
+        }, 250);
+        return () => clearTimeout(t);
+      }
+      return;
+    }
 
-    // If trick has all 4 cards, auto-collect after 1.3s (or user can tap early)
+    // If no one taps the table, auto-collect the 4 cards after 5 seconds (5000ms)
     if (state.phase === 'PLAYING' && state.currentTrick.cards.length === 4) {
       botTimerRef.current = setTimeout(() => {
         setLocalSession(prev => {
           if (!prev || prev.state.currentTrick.cards.length !== 4) return prev;
           return resolveCompletedTrick(prev);
         });
-      }, 1300);
+      }, 5000);
       return () => {
         if (botTimerRef.current) clearTimeout(botTimerRef.current);
       };
@@ -180,6 +198,7 @@ export function useLocalBotGame(
     makeBotGameBid,
     playBotGameCard,
     collectCompletedTrick,
+    undoBotGameMove,
     nextBotGameBoard,
   };
 }

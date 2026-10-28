@@ -79,17 +79,17 @@ export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids }) => {
   };
 
   return (
-    <div className="bg-slate-900/90 backdrop-blur border border-slate-800 rounded-xl p-2.5 shadow-xl max-w-md mx-auto">
-      <div className="grid grid-cols-4 gap-1 border-b border-slate-700/80 pb-1.5 mb-1 text-center font-bold text-xs text-amber-400 tracking-wider">
-        <div>N (Północ)</div>
-        <div>E (Wschód)</div>
-        <div>S (Południe)</div>
-        <div>W (Zachód)</div>
+    <div className="bg-slate-900/95 backdrop-blur border border-slate-700/80 rounded-xl p-1.5 sm:p-2 shadow-xl w-full max-w-md mx-auto">
+      <div className="grid grid-cols-4 gap-1 border-b border-slate-700/80 pb-1 mb-1 text-center font-bold text-[10px] sm:text-xs text-amber-400 tracking-wider">
+        <div>N</div>
+        <div>E</div>
+        <div>S</div>
+        <div>W</div>
       </div>
 
-      <div className="max-h-36 overflow-y-auto space-y-1">
+      <div className="max-h-24 land:max-h-20 desk:max-h-32 overflow-y-auto space-y-0.5">
         {rows.length === 0 ? (
-          <div className="text-center py-2 text-xs text-slate-500">Początek licytacji...</div>
+          <div className="text-center py-1 text-[11px] text-slate-400">Początek licytacji (rozdaje {dealer})...</div>
         ) : (
           rows.map((row, rIdx) => (
             <div key={rIdx} className="grid grid-cols-4 gap-1 items-center">

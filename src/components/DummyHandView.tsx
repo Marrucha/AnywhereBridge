@@ -52,11 +52,8 @@ export const DummyHandView: React.FC<DummyHandViewProps> = ({
       : (dummySeat === 'N' || dummySeat === 'S')
     : (dummySeat === 'E' || dummySeat === 'W');
 
-  const standardSuits: Suit[] = ['S', 'H', 'C', 'D'];
-  const suitsOrder: Suit[] =
-    trumpSuit && trumpSuit !== 'NT'
-      ? [trumpSuit as Suit, ...standardSuits.filter(s => s !== trumpSuit)]
-      : standardSuits;
+  // Always sort suits: Spades (pik), Hearts (kier), Clubs (trefl), Diamonds (karo)
+  const suitsOrder: Suit[] = ['S', 'H', 'C', 'D'];
 
   const cardsBySuit: Record<Suit, Card[]> = {
     S: [],
@@ -106,62 +103,32 @@ export const DummyHandView: React.FC<DummyHandViewProps> = ({
   };
 
   return (
-    <div
-      className={`w-full my-0.5 px-1.5 py-1 rounded-xl border-2 transition-all shrink-0 ${
-        canIPlayDummy
-          ? 'bg-amber-950/80 border-amber-400 ring-2 ring-amber-400/60 shadow-lg'
-          : isOpponent
-          ? 'bg-slate-950/95 border-amber-500/50 shadow-md'
-          : 'bg-slate-950/90 border-slate-700/80'
-      }`}
-    >
-      {/* Header bar */}
-      <div className="flex items-center justify-between text-[10px] sm:text-xs font-bold px-1 pb-0.5 leading-none">
-        <div className="flex items-center gap-1.5 text-slate-200 flex-wrap">
-          <span className="text-amber-400 font-black">
-            🂠 DZIADEK: {seatName || SEAT_FULL_NAMES[dummySeat]} ({dummySeat})
-          </span>
-          {declarerSeat && (
-            <span className="text-slate-400 text-[10px] hidden sm:inline">
-              (Rozgrywa: {SEAT_FULL_NAMES[declarerSeat]})
-            </span>
-          )}
+    <div className="w-full relative flex flex-col items-center shrink-0">
+      {hintMessage && (
+        <div className="absolute -bottom-5 z-30 text-amber-200 bg-rose-950/95 border border-amber-400 px-2.5 py-0.5 rounded-full text-[10px] font-black shadow-lg animate-bounce pointer-events-none">
+          {hintMessage}
         </div>
+      )}
 
-        {hintMessage ? (
-          <span className="text-amber-200 bg-rose-950/90 border border-amber-400 px-2 py-0.5 rounded-full text-[10px] font-black animate-bounce">
-            {hintMessage}
-          </span>
-        ) : canIPlayDummy ? (
-          <span className="text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black animate-pulse border border-amber-400/60">
-            👆 Twoja tura z Dziadka — dotknij karty!
-          </span>
-        ) : (
-          <span className="text-slate-400 text-[10px]">
-            {dummyHand.length} kart
-          </span>
-        )}
-      </div>
-
-      {/* Full-width responsive card fan for Dummy at top */}
-      <div className="w-full flex items-end justify-center pt-1.5 pb-0.5 px-0.5 overflow-hidden">
+      {/* Full-width responsive card fan for Dummy directly on felt (no bulky wrapper bar) */}
+      <div className="w-full flex items-end justify-center pt-1 pb-0.5 px-1 overflow-visible">
         {orderedCards.map(({ card, isNewSuit }, idx) => {
           const isLast = idx === orderedCards.length - 1;
           const isPlayable = canIPlayDummy && isCardLegal(card, dummyHand, leadCardSuit);
           return (
             <React.Fragment key={card.id}>
-              {isNewSuit && <div className="w-1.5 sm:w-2.5 shrink-0" />}
+              {isNewSuit && <div className="w-1.5 land:w-2 desk:w-2.5 shrink-0" />}
               <div
                 style={{ zIndex: idx + 1 }}
                 className={
                   isLast
-                    ? 'w-[54px] sm:w-[64px] shrink-0 flex justify-start'
-                    : 'flex-1 min-w-0 max-w-[48px] sm:max-w-[58px] flex justify-start overflow-visible'
+                    ? 'relative w-[62px] land:w-[56px] desk:w-[78px] shrink-0 flex justify-start'
+                    : 'relative flex-1 min-w-0 max-w-[56px] land:max-w-[52px] desk:max-w-[72px] flex justify-start overflow-visible'
                 }
               >
                 <CardView
                   card={card}
-                  size="topDummy"
+                  size="player"
                   isPlayable={isPlayable}
                   isHighlighted={isPlayable}
                   onClick={() => {

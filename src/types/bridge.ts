@@ -78,6 +78,11 @@ export interface ConnectedPlayer {
   seat: Seat | null;
 }
 
+export interface UndoRequest {
+  requesterSeat: Seat;
+  requesterName: string;
+}
+
 export interface RoomState {
   roomId: string;
   boardNumber: number;
@@ -116,6 +121,9 @@ export interface RoomState {
   tricksWonEW: number;
   currentTurn: Seat | null;
 
+  undoRequest?: UndoRequest | null;
+  undoNotice?: string | null;
+
   lastResult: ScoreRecord | null;
   history: ScoreRecord[];
   hostId: string | null;
@@ -136,6 +144,9 @@ export type ClientMessage =
   | { type: 'start_game' }
   | { type: 'make_bid'; bid: { type: 'BID' | 'PASS' | 'DOUBLE' | 'REDOUBLE'; level?: number; suit?: TrumpSuit } }
   | { type: 'play_card'; cardId: string }
+  | { type: 'collect_trick' }
+  | { type: 'request_undo' }
+  | { type: 'respond_undo'; accept: boolean }
   | { type: 'next_board' }
   | { type: 'reset_room' }
   | { type: 'clear_history' }

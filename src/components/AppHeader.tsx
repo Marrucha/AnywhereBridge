@@ -37,40 +37,36 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
   onResetRoom,
 }) => {
   return (
-    <header className="h-12 sm:h-14 bg-slate-950/95 border-b border-slate-800/80 px-1.5 sm:px-4 flex items-center justify-between shrink-0 shadow-lg z-20 gap-1">
+    <header className="h-11 land:h-8 desk:h-12 bg-slate-950/95 border-b border-slate-800/80 px-1.5 sm:px-3 flex items-center justify-between shrink-0 shadow-md z-20 gap-1">
       {/* Left: Brand & Room */}
-      <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
-        <div className="p-1 sm:p-1.5 bg-amber-500/10 text-amber-400 rounded-lg flex items-center justify-center shrink-0">
-          <Plane className="w-4 h-4 sm:w-5 sm:h-5 -rotate-45" />
+      <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
+        <div className="p-1 land:p-0.5 bg-amber-500/10 text-amber-400 rounded-lg flex items-center justify-center shrink-0">
+          <Plane className="w-3.5 h-3.5 desk:w-4 desk:h-4 -rotate-45" />
         </div>
-        <div className="min-w-0">
-          <div className="flex items-center gap-1 sm:gap-2">
-            <span className="font-black text-xs sm:text-base tracking-tight text-white truncate">anywhereBridge</span>
-            <span className="bg-slate-800 text-amber-400 font-mono text-[9px] sm:text-[10px] font-bold px-1 sm:px-1.5 py-0.5 rounded border border-slate-700 shrink-0">
-              {roomId}
-            </span>
-            {isBotGame && (
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="bg-indigo-950/90 border border-indigo-500/50 text-indigo-300 px-1.5 py-0.5 rounded text-[9px] font-bold flex items-center gap-0.5">
-                  <Bot className="w-2.5 h-2.5 text-indigo-400" />
-                  <span className="hidden sm:inline">Boty</span>
-                </span>
-                <button
-                  type="button"
-                  onClick={onStopBotGame}
-                  className="text-[9px] text-slate-400 hover:text-white underline transition"
-                  title="Wyjdź z gry z botami"
-                >
-                  Wyjdź
-                </button>
-              </div>
-            )}
-          </div>
+        <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
+          <span className="font-black text-xs desk:text-sm tracking-tight text-white truncate">anywhereBridge</span>
+          <span className="bg-slate-800 text-amber-400 font-mono text-[9px] font-bold px-1 py-0.5 rounded border border-slate-700 shrink-0">
+            {roomId}
+          </span>
           {effectiveState && (
-            <div className="flex items-center gap-1 text-[9px] sm:text-[10px] text-slate-400 truncate">
-              <span>Rozd. #{effectiveState.boardNumber}</span>
-              <span>•</span>
-              <span>Rozd: <strong className="text-slate-200">{effectiveState.dealer}</strong></span>
+            <span className="text-[9px] sm:text-[10px] text-slate-400 truncate">
+              #{effectiveState.boardNumber} • Rozd: <strong className="text-slate-200">{effectiveState.dealer}</strong>
+            </span>
+          )}
+          {isBotGame && (
+            <div className="flex items-center gap-1 shrink-0">
+              <span className="bg-indigo-950/90 border border-indigo-500/50 text-indigo-300 px-1 py-0.5 rounded text-[9px] font-bold flex items-center gap-0.5">
+                <Bot className="w-2.5 h-2.5 text-indigo-400" />
+                <span className="hidden sm:inline">Boty</span>
+              </span>
+              <button
+                type="button"
+                onClick={onStopBotGame}
+                className="text-[9px] text-slate-400 hover:text-white underline transition"
+                title="Wyjdź z gry z botami"
+              >
+                Wyjdź
+              </button>
             </div>
           )}
         </div>

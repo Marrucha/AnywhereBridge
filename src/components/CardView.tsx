@@ -40,19 +40,19 @@ export const CardView: React.FC<CardViewProps> = ({
   const rankLabel = card.rank === 'T' ? '10' : card.rank;
 
   const sizeClasses = {
-    sm: 'w-7 h-10 sm:w-9 sm:h-13 text-[9px] sm:text-[10px] rounded',
-    dummy: 'w-[34px] h-[50px] sm:w-[42px] sm:h-[62px] text-[10px] sm:text-xs rounded-md',
-    topDummy: 'w-[54px] h-[80px] sm:w-[64px] sm:h-[96px] text-xs sm:text-base rounded-lg shadow',
-    md: 'w-[48px] h-[72px] sm:w-[58px] sm:h-[86px] text-xs sm:text-sm rounded-lg shadow',
-    lg: 'w-[54px] h-[80px] sm:w-[68px] sm:h-[100px] text-sm sm:text-base rounded-xl shadow-lg',
-    player: 'w-[64px] h-[96px] sm:w-[78px] sm:h-[114px] text-[15px] sm:text-lg rounded-xl shadow-md',
+    sm: 'w-7 h-10 desk:w-9 desk:h-13 text-[9px] desk:text-[10px] rounded',
+    dummy: 'w-[32px] h-[46px] land:w-[28px] land:h-[40px] desk:w-[42px] desk:h-[62px] text-[10px] desk:text-xs rounded-md',
+    topDummy: 'w-[52px] h-[74px] land:w-[48px] land:h-[66px] desk:w-[64px] desk:h-[96px] text-xs desk:text-base rounded-lg shadow',
+    md: 'w-[46px] h-[68px] land:w-[40px] land:h-[58px] desk:w-[58px] desk:h-[86px] text-xs desk:text-sm rounded-lg shadow',
+    lg: 'w-[54px] h-[80px] land:w-[46px] land:h-[68px] desk:w-[68px] desk:h-[100px] text-sm desk:text-base rounded-xl shadow-lg',
+    player: 'w-[62px] h-[90px] land:w-[56px] land:h-[78px] desk:w-[78px] desk:h-[114px] text-[14px] land:text-[13px] desk:text-lg rounded-xl shadow-md',
   }[size];
 
   const canActivate = !disabled && isPlayable && !!onClick;
 
   const interactionClasses = canActivate
-    ? 'cursor-pointer -translate-y-1 hover:-translate-y-2.5 active:translate-y-0 transition-transform'
-    : 'cursor-pointer active:scale-95 transition-transform';
+    ? 'cursor-pointer -translate-y-1 active:scale-95 transition-transform duration-75'
+    : 'cursor-pointer active:scale-95 transition-transform duration-75';
 
   const borderClass = isHighlighted || canActivate
     ? 'border-2 border-amber-400 ring-1 ring-amber-400/70'

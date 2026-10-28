@@ -1,6 +1,6 @@
 import { Card, Rank, Seat, Suit } from '../types/bridge';
 
-export const SUITS: Suit[] = ['S', 'H', 'D', 'C'];
+export const SUITS: Suit[] = ['S', 'H', 'C', 'D'];
 export const RANKS: Rank[] = ['2', '3', '4', '5', '6', '7', '8', '9', 'T', 'J', 'Q', 'K', 'A'];
 
 export const RANK_VALUES: Record<Rank, number> = {
@@ -61,8 +61,8 @@ export function sortHand(cards: Card[]): Card[] {
   const suitOrder: Record<Suit, number> = {
     S: 0,
     H: 1,
-    D: 2,
-    C: 3,
+    C: 2,
+    D: 3,
   };
 
   return [...cards].sort((a, b) => {

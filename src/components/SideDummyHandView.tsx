@@ -42,11 +42,8 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
 }) => {
   if (!dummyHand || dummyHand.length === 0) return null;
 
-  const standardSuits: Suit[] = ['S', 'H', 'D', 'C'];
-  const suitsOrder: Suit[] =
-    trumpSuit && trumpSuit !== 'NT'
-      ? [trumpSuit as Suit, ...standardSuits.filter(s => s !== trumpSuit)]
-      : standardSuits;
+  // Always sort suits: Spades (pik), Hearts (kier), Clubs (trefl), Diamonds (karo)
+  const suitsOrder: Suit[] = ['S', 'H', 'C', 'D'];
 
   const cardsBySuit: Record<Suit, Card[]> = {
     S: [],

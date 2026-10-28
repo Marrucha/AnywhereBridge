@@ -17,6 +17,10 @@ import java.net.NetworkInterface;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 import fi.iki.elonen.NanoHTTPD;
 import fi.iki.elonen.NanoWSD;
@@ -40,8 +44,8 @@ public class LocalAirplaneServer extends NanoWSD {
     private final Map<String, JSONObject> seats = new HashMap<>(); // N, E, S, W -> { id, name, connected, isBot }
     private final Map<String, List<String>> hands = new HashMap<>(); // N, E, S, W -> List of card IDs
     private final Map<String, List<String>> dealHands = new HashMap<>(); // N, E, S, W -> Original 13 card IDs
-    private final android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
-    private Runnable pendingBotRunnable = null;
+    private final ScheduledExecutorService botExecutor = Executors.newSingleThreadScheduledExecutor();
+    private ScheduledFuture<?> pendingBotFuture = null;
 
     private final List<JSONObject> bids = new ArrayList<>();
     private String currentBidder = null;
@@ -59,6 +63,8 @@ public class LocalAirplaneServer extends NanoWSD {
     private JSONObject lastResult = null;
     private final List<JSONObject> history = new ArrayList<>();
     private String hostId = null;
+    private JSONObject undoRequest = null;
+    private String undoNotice = null;
 
     // Constants
     private static final String[] SEATS = {"N", "E", "S", "W"};
@@ -131,6 +137,8 @@ public class LocalAirplaneServer extends NanoWSD {
         tricksWonEW = 0;
         currentTurn = null;
         lastResult = null;
+        undoRequest = null;
+        undoNotice = null;
     }
 
     private void dealDeck() {
@@ -167,8 +175,8 @@ public class LocalAirplaneServer extends NanoWSD {
         Map<Character, Integer> suitOrder = new HashMap<>();
         suitOrder.put('S', 0);
         suitOrder.put('H', 1);
-        suitOrder.put('D', 2);
-        suitOrder.put('C', 3);
+        suitOrder.put('C', 2);
+        suitOrder.put('D', 3);
 
         sorted.sort((a, b) -> {
             char suitA = a.charAt(1);
@@ -443,15 +451,19 @@ public class LocalAirplaneServer extends NanoWSD {
             }
 
             if ("make_bid".equals(type)) {
+                if (undoRequest != null) return;
                 if (!"BIDDING".equals(phase) || ws.seat == null || !ws.seat.equals(currentBidder)) return;
                 JSONObject bidData = msg.optJSONObject("bid");
                 if (bidData == null) return;
+                undoNotice = null;
                 processBidInternal(ws.seat, bidData);
                 return;
             }
 
             if ("play_card".equals(type)) {
+                if (undoRequest != null) return;
                 if (!"PLAYING".equals(phase) || ws.seat == null) return;
+                undoNotice = null;
 
                 // If 4 cards from previous trick are still on table, collect trick immediately first!
                 JSONArray existingCards = currentTrick.optJSONArray("cards");
@@ -471,7 +483,59 @@ public class LocalAirplaneServer extends NanoWSD {
             }
 
             if ("collect_trick".equals(type)) {
+                if (undoRequest != null) return;
                 collectCompletedTrickInternal();
+                return;
+            }
+
+            if ("request_undo".equals(type)) {
+                if (ws.seat == null || undoRequest != null) return;
+                boolean canUndo = false;
+                if ("BIDDING".equals(phase) && !bids.isEmpty()) canUndo = true;
+                else if ("PLAYING".equals(phase)) {
+                    JSONArray cArr = currentTrick != null ? currentTrick.optJSONArray("cards") : null;
+                    if ((cArr != null && cArr.length() > 0) || !pastTricks.isEmpty()) canUndo = true;
+                }
+                if (!canUndo) return;
+
+                if (pendingBotFuture != null) {
+                    pendingBotFuture.cancel(false);
+                    pendingBotFuture = null;
+                }
+
+                // Check if both opponents of requester are bots
+                String opp1 = nextSeat(ws.seat);
+                String opp2 = nextSeat(partnerSeat(ws.seat));
+                if (isSeatBot(opp1) && isSeatBot(opp2)) {
+                    performUndoInternal();
+                    undoNotice = "✅ Cofnięto ostatni ruch / kartę.";
+                    broadcastState();
+                    scheduleBotActionIfNeeded();
+                } else {
+                    undoRequest = new JSONObject();
+                    undoRequest.put("requesterSeat", ws.seat);
+                    undoRequest.put("requesterName", ws.playerName != null ? ws.playerName : ws.seat);
+                    undoNotice = null;
+                    broadcastState();
+                }
+                return;
+            }
+
+            if ("respond_undo".equals(type)) {
+                if (ws.seat == null || undoRequest == null) return;
+                String reqSeat = undoRequest.optString("requesterSeat");
+                if (getPartnership(ws.seat).equals(getPartnership(reqSeat))) return; // Only opponents can decide
+
+                boolean accept = msg.optBoolean("accept", false);
+                undoRequest = null;
+                if (accept) {
+                    performUndoInternal();
+                    undoNotice = "✅ Cofnięto ruch (zaakceptowano).";
+                } else {
+                    undoNotice = "❌ Prośba o cofnięcie została odrzucona.";
+                }
+                broadcastState();
+                scheduleBotActionIfNeeded();
                 return;
             }
 
@@ -676,7 +740,7 @@ public class LocalAirplaneServer extends NanoWSD {
             if (cardsArr.length() == 4) {
                 String winner = determineWinner(currentTrick, contract.optString("suit"));
                 currentTrick.put("winnerSeat", winner);
-                currentTurn = null;
+                currentTurn = winner;
                 broadcastState();
                 scheduleBotActionIfNeeded();
                 return;
@@ -696,9 +760,9 @@ public class LocalAirplaneServer extends NanoWSD {
             JSONArray cardsArr = currentTrick.optJSONArray("cards");
             if (cardsArr == null || cardsArr.length() != 4) return;
 
-            if (pendingBotRunnable != null) {
-                mainHandler.removeCallbacks(pendingBotRunnable);
-                pendingBotRunnable = null;
+            if (pendingBotFuture != null) {
+                pendingBotFuture.cancel(false);
+                pendingBotFuture = null;
             }
 
             String winner = currentTrick.optString("winnerSeat");
@@ -730,35 +794,76 @@ public class LocalAirplaneServer extends NanoWSD {
         }
     }
 
-    private synchronized void scheduleBotActionIfNeeded() {
-        if (pendingBotRunnable != null) {
-            mainHandler.removeCallbacks(pendingBotRunnable);
-            pendingBotRunnable = null;
+    private synchronized void performUndoInternal() {
+        try {
+            if ("BIDDING".equals(phase) && !bids.isEmpty()) {
+                JSONObject lastBid = bids.remove(bids.size() - 1);
+                currentBidder = lastBid.optString("bidder", dealer);
+                return;
+            }
+            if ("PLAYING".equals(phase)) {
+                JSONArray cardsArr = currentTrick != null ? currentTrick.optJSONArray("cards") : null;
+                if ((cardsArr == null || cardsArr.length() == 0) && !pastTricks.isEmpty()) {
+                    JSONObject lastTrick = pastTricks.remove(pastTricks.size() - 1);
+                    String w = lastTrick.optString("winnerSeat");
+                    if ("N".equals(w) || "S".equals(w)) tricksWonNS = Math.max(0, tricksWonNS - 1);
+                    else if ("E".equals(w) || "W".equals(w)) tricksWonEW = Math.max(0, tricksWonEW - 1);
+                    currentTrick = new JSONObject();
+                    currentTrick.put("leadSeat", lastTrick.optString("leadSeat", "N"));
+                    currentTrick.put("cards", lastTrick.getJSONArray("cards"));
+                    cardsArr = currentTrick.getJSONArray("cards");
+                }
+                if (cardsArr != null && cardsArr.length() > 0) {
+                    int lastIdx = cardsArr.length() - 1;
+                    JSONObject lastPlayed = cardsArr.getJSONObject(lastIdx);
+                    cardsArr.remove(lastIdx);
+                    currentTrick.remove("winnerSeat");
+                    String playedBy = lastPlayed.optString("playedBy");
+                    String cId = lastPlayed.getJSONObject("card").optString("id");
+                    if (hands.get(playedBy) != null && !cId.isEmpty()) {
+                        hands.get(playedBy).add(cId);
+                        List<String> sorted = sortHand(hands.get(playedBy));
+                        hands.get(playedBy).clear();
+                        hands.get(playedBy).addAll(sorted);
+                    }
+                    currentTurn = playedBy;
+                    openingLeadMade = !pastTricks.isEmpty() || cardsArr.length() > 0;
+                }
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in performUndoInternal", e);
         }
+    }
+
+    private synchronized void scheduleBotActionIfNeeded() {
+        if (pendingBotFuture != null) {
+            pendingBotFuture.cancel(false);
+            pendingBotFuture = null;
+        }
+        if (undoRequest != null) return;
 
         if ("BIDDING".equals(phase) && currentBidder != null && isSeatBot(currentBidder)) {
             final String botSeat = currentBidder;
-            pendingBotRunnable = () -> {
+            pendingBotFuture = botExecutor.schedule(() -> {
                 synchronized (LocalAirplaneServer.this) {
                     if ("BIDDING".equals(phase) && botSeat.equals(currentBidder) && isSeatBot(botSeat)) {
                         JSONObject bid = chooseBotBid(botSeat);
                         processBidInternal(botSeat, bid);
                     }
                 }
-            };
-            mainHandler.postDelayed(pendingBotRunnable, 650);
+            }, 900, TimeUnit.MILLISECONDS);
             return;
         }
 
         if ("PLAYING".equals(phase)) {
             JSONArray cardsArr = currentTrick != null ? currentTrick.optJSONArray("cards") : null;
             if (cardsArr != null && cardsArr.length() == 4) {
-                pendingBotRunnable = () -> {
+                // Auto-hide after 5 seconds if no player taps the table earlier
+                pendingBotFuture = botExecutor.schedule(() -> {
                     synchronized (LocalAirplaneServer.this) {
                         collectCompletedTrickInternal();
                     }
-                };
-                mainHandler.postDelayed(pendingBotRunnable, 1300);
+                }, 5000, TimeUnit.MILLISECONDS);
                 return;
             }
 
@@ -766,7 +871,7 @@ public class LocalAirplaneServer extends NanoWSD {
                 String controllerSeat = currentTurn.equals(dummySeat) ? declarerSeat : currentTurn;
                 if (isSeatBot(controllerSeat)) {
                     final String turnSeat = currentTurn;
-                    pendingBotRunnable = () -> {
+                    pendingBotFuture = botExecutor.schedule(() -> {
                         synchronized (LocalAirplaneServer.this) {
                             if ("PLAYING".equals(phase) && turnSeat.equals(currentTurn)) {
                                 String cardId = chooseBotCard(turnSeat);
@@ -775,8 +880,7 @@ public class LocalAirplaneServer extends NanoWSD {
                                 }
                             }
                         }
-                    };
-                    mainHandler.postDelayed(pendingBotRunnable, 650);
+                    }, 900, TimeUnit.MILLISECONDS);
                 }
             }
         }
@@ -1091,6 +1195,8 @@ public class LocalAirplaneServer extends NanoWSD {
                 s.put("tricksWonNS", tricksWonNS);
                 s.put("tricksWonEW", tricksWonEW);
                 s.put("currentTurn", currentTurn != null ? currentTurn : JSONObject.NULL);
+                s.put("undoRequest", undoRequest != null ? undoRequest : JSONObject.NULL);
+                s.put("undoNotice", undoNotice != null ? undoNotice : JSONObject.NULL);
                 s.put("lastResult", lastResult != null ? lastResult : JSONObject.NULL);
 
                 if ("BOARD_RESULT".equals(phase)) {

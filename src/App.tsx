@@ -94,6 +94,7 @@ export const App: React.FC = () => {
     makeBotGameBid,
     playBotGameCard,
     collectCompletedTrick,
+    undoBotGameMove,
     nextBotGameBoard,
   } = useLocalBotGame(mySeat, playerName, (record) => {
     const updated = saveScoreRecord(record);
@@ -242,75 +243,62 @@ export const App: React.FC = () => {
   const handleTakeSeat = (seat: Seat) => {
     setMySeat(seat);
     saveStoredSeat(seat);
-    if (!isBotGame) {
-      sendMessage({ type: 'take_seat', seat });
-    }
+    if (!isBotGame) sendMessage({ type: 'take_seat', seat });
   };
 
   const handleLeaveSeat = () => {
-    if (isBotGame) {
-      stopBotGame();
-    } else {
-      sendMessage({ type: 'leave_seat' });
-    }
+    if (isBotGame) stopBotGame();
+    else sendMessage({ type: 'leave_seat' });
     setMySeat(null);
     saveStoredSeat(null);
   };
 
   const handleStartGame = () => {
     if (isBotGame || !connected || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
-      const targetBoard = (localScores.length % 8) + 1;
-      startBotGame(mySeat || 'S', targetBoard);
+      startBotGame(mySeat || 'S', (localScores.length % 8) + 1);
     } else {
       sendMessage({ type: 'start_game' });
     }
   };
 
   const handleMakeBid = (bid: any) => {
-    if (isBotGame) {
-      makeBotGameBid(bid);
-    } else {
-      sendMessage({ type: 'make_bid', bid });
-    }
+    if (isBotGame) makeBotGameBid(bid);
+    else sendMessage({ type: 'make_bid', bid });
   };
 
   const handlePlayCard = (cardId: string) => {
-    if (isBotGame) {
-      playBotGameCard(cardId);
-    } else {
-      sendMessage({ type: 'play_card', cardId });
-    }
+    if (isBotGame) playBotGameCard(cardId);
+    else sendMessage({ type: 'play_card', cardId });
   };
 
   const handleCollectTrick = () => {
-    if (isBotGame) {
-      collectCompletedTrick();
-    } else {
-      sendMessage({ type: 'collect_trick' });
-    }
+    if (isBotGame) collectCompletedTrick();
+    else sendMessage({ type: 'collect_trick' });
+  };
+
+  const handleRequestUndo = () => {
+    if (isBotGame) undoBotGameMove();
+    else sendMessage({ type: 'request_undo' });
+  };
+
+  const handleRespondUndo = (accept: boolean) => {
+    sendMessage({ type: 'respond_undo', accept });
   };
 
   const handleNextBoard = () => {
     const nextBoardNum = (localScores.length % 8) + 1;
-    if (isBotGame || !wsRef.current) {
-      nextBotGameBoard(nextBoardNum);
-    } else {
-      sendMessage({ type: 'next_board' });
-    }
+    if (isBotGame || !wsRef.current) nextBotGameBoard(nextBoardNum);
+    else sendMessage({ type: 'next_board' });
   };
 
   const handleStartNewEight = () => {
-    if (isBotGame) {
-      startBotGame(mySeat || 'S', 1);
-    } else {
-      sendMessage({ type: 'start_game' });
-    }
+    if (isBotGame) startBotGame(mySeat || 'S', 1);
+    else sendMessage({ type: 'start_game' });
   };
 
   const handleResetRoom = () => {
-    if (isBotGame) {
-      stopBotGame();
-    } else if (window.confirm('Czy na pewno chcesz zresetować stan pokoju do poczekalni?')) {
+    if (isBotGame) stopBotGame();
+    else if (window.confirm('Czy na pewno chcesz zresetować stan pokoju do poczekalni?')) {
       sendMessage({ type: 'reset_room' });
     }
   };
@@ -429,6 +417,8 @@ export const App: React.FC = () => {
               setUnreadChatCount(0);
             }}
             latestChatMessage={latestChatMessage}
+            onRequestUndo={handleRequestUndo}
+            onRespondUndo={handleRespondUndo}
             onStartBotGame={() => startBotGame(mySeat || 'S', (localScores.length % 8) + 1)}
             onStartNewEight={handleStartNewEight}
             isBotGame={isBotGame}
