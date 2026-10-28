@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScoreRecord } from '../types/bridge';
-import { Trophy, Trash2, X, RotateCcw, Award } from 'lucide-react';
+import { Trophy, Trash2, X, RotateCcw, Award, Play } from 'lucide-react';
 
 interface ScoreModalProps {
   isOpen: boolean;
@@ -8,6 +8,7 @@ interface ScoreModalProps {
   scores: ScoreRecord[];
   onClearHistory: () => void;
   onStartNewEight?: () => void;
+  onNextBoard?: () => void;
 }
 
 export const ScoreModal: React.FC<ScoreModalProps> = ({
@@ -16,6 +17,7 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
   scores,
   onClearHistory,
   onStartNewEight,
+  onNextBoard,
 }) => {
   if (!isOpen) return null;
 
@@ -230,17 +232,33 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
               </button>
             )}
 
-            {onStartNewEight && (
+            {/* Button to continue next board if 8 is in progress */}
+            {scores.length % 8 !== 0 && onNextBoard && (
+              <button
+                type="button"
+                onClick={() => {
+                  onNextBoard();
+                  onClose();
+                }}
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 border border-emerald-400/50 shadow transition active:scale-95"
+              >
+                <Play className="w-3.5 h-3.5 fill-current" />
+                <span>Graj rozdanie #{(scores.length % 8) + 1}</span>
+              </button>
+            )}
+
+            {/* Button to start new 8 if 8 is complete */}
+            {scores.length > 0 && scores.length % 8 === 0 && onStartNewEight && (
               <button
                 type="button"
                 onClick={() => {
                   onStartNewEight();
                   onClose();
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 transition"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 transition active:scale-95"
               >
-                <RotateCcw className="w-4 h-4" />
-                <span>Zacznij nową 8</span>
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>🏆 Zacznij nową 8 (#1)</span>
               </button>
             )}
           </div>

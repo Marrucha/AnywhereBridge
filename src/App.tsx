@@ -243,7 +243,8 @@ export const App: React.FC = () => {
 
   const handleStartGame = () => {
     if (isBotGame) {
-      startBotGame(mySeat || 'S', 1);
+      const targetBoard = (localScores.length % 8) + 1;
+      startBotGame(mySeat || 'S', targetBoard);
     } else {
       sendMessage({ type: 'start_game' });
     }
@@ -274,8 +275,9 @@ export const App: React.FC = () => {
   };
 
   const handleNextBoard = () => {
-    if (isBotGame) {
-      nextBotGameBoard();
+    const nextBoardNum = (localScores.length % 8) + 1;
+    if (isBotGame || !wsRef.current) {
+      nextBotGameBoard(nextBoardNum);
     } else {
       sendMessage({ type: 'next_board' });
     }
@@ -409,7 +411,7 @@ export const App: React.FC = () => {
               setUnreadChatCount(0);
             }}
             latestChatMessage={latestChatMessage}
-            onStartBotGame={() => startBotGame(mySeat || 'S', 1)}
+            onStartBotGame={() => startBotGame(mySeat || 'S', (localScores.length % 8) + 1)}
             onStartNewEight={handleStartNewEight}
             isBotGame={isBotGame}
             ddsResult={ddsResult} ddsLoading={ddsLoading}
@@ -418,7 +420,7 @@ export const App: React.FC = () => {
           <ConnectingScreen
             roomId={roomId}
             activeWsUrl={activeWsUrl}
-            onStartBotGame={() => startBotGame(mySeat || 'S', 1)}
+            onStartBotGame={() => startBotGame(mySeat || 'S', (localScores.length % 8) + 1)}
             onUpdateConnection={handleUpdateConnection}
             onOpenConnectionModal={() => setIsConnectionOpen(true)}
           />
@@ -444,6 +446,7 @@ export const App: React.FC = () => {
         scores={localScores}
         onClearHistory={handleClearHistory}
         onStartNewEight={handleStartNewEight}
+        onNextBoard={handleNextBoard}
       />
 
       {effectiveState?.phase === 'BOARD_RESULT' && effectiveState?.boardNumber % 8 === 0 && (

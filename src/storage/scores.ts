@@ -37,7 +37,18 @@ export function getStoredScores(): ScoreRecord[] {
       }
     }
 
-    return deduplicated;
+    // Re-index consecutive boards within an 8-board cycle in chronological order
+    // to fix duplicate #1 entries (newest is at index 0)
+    const chronological = [...deduplicated].reverse();
+    const corrected = chronological.map((item, idx) => {
+      const expectedNum = (idx % 8) + 1;
+      if (item.boardNumber !== expectedNum) {
+        return { ...item, boardNumber: expectedNum };
+      }
+      return item;
+    });
+
+    return corrected.reverse();
   } catch (e) {
     console.error('Failed to load bridge scores from localStorage:', e);
     return [];

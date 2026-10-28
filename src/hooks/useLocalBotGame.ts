@@ -20,7 +20,7 @@ export interface UseLocalBotGameResult {
   makeBotGameBid: (bid: any) => void;
   playBotGameCard: (cardId: string) => void;
   collectCompletedTrick: () => void;
-  nextBotGameBoard: () => void;
+  nextBotGameBoard: (targetBoardNumber?: number) => void;
 }
 
 export function useLocalBotGame(
@@ -105,9 +105,13 @@ export function useLocalBotGame(
     }
   };
 
-  const nextBotGameBoard = () => {
-    if (!localSession) return;
-    startBotGame(activeSeat, localSession.state.boardNumber + 1);
+  const nextBotGameBoard = (targetBoardNumber?: number) => {
+    const nextNum = targetBoardNumber !== undefined
+      ? targetBoardNumber
+      : localSession
+      ? localSession.state.boardNumber + 1
+      : 1;
+    startBotGame(activeSeat, nextNum);
   };
 
   // Bot automation loop: waits until user clicks on screen to collect 4-card tricks
