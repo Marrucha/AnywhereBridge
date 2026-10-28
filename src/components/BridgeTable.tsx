@@ -205,9 +205,9 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             <DummyHandView
               dummySeat="N"
               dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.N || dummyHand || []) : dummyHand!}
-              canIPlayDummy={false}
-              leadCardSuit={null}
-              onPlayCard={() => {}}
+              canIPlayDummy={phase === 'PLAYING' ? canIPlayDummy : false}
+              leadCardSuit={phase === 'PLAYING' ? leadCardSuit : null}
+              onPlayCard={phase === 'PLAYING' ? onPlayCard : () => {}}
               trumpSuit={contract ? contract.suit : undefined}
               declarerSeat={declarerSeat}
               mySeat={mySeat}
@@ -267,9 +267,9 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               dummySeat="W"
               dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.W || dummyHand || []) : dummyHand!}
               trumpSuit={contract ? contract.suit : undefined}
-              canIPlayDummy={false}
-              leadCardSuit={null}
-              onPlayCard={() => {}}
+              canIPlayDummy={phase === 'PLAYING' ? canIPlayDummy : false}
+              leadCardSuit={phase === 'PLAYING' ? leadCardSuit : null}
+              onPlayCard={phase === 'PLAYING' ? onPlayCard : () => {}}
               seatName={seats.W?.name}
             />
           ) : (
@@ -333,9 +333,9 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               dummySeat="E"
               dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.E || dummyHand || []) : dummyHand!}
               trumpSuit={contract ? contract.suit : undefined}
-              canIPlayDummy={false}
-              leadCardSuit={null}
-              onPlayCard={() => {}}
+              canIPlayDummy={phase === 'PLAYING' ? canIPlayDummy : false}
+              leadCardSuit={phase === 'PLAYING' ? leadCardSuit : null}
+              onPlayCard={phase === 'PLAYING' ? onPlayCard : () => {}}
               seatName={seats.E?.name}
             />
           ) : (
@@ -394,10 +394,10 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           (phase === 'BOARD_RESULT' && (state.dealHands?.S || myHand))) && (
           <PlayerHandView
             hand={phase === 'BOARD_RESULT' ? (state.dealHands?.S || myHand) : myHand}
-            isMyTurn={false}
+            isMyTurn={phase === 'PLAYING' ? isMyTurn : false}
             phase={phase}
-            leadCardSuit={null}
-            onPlayCard={() => {}}
+            leadCardSuit={phase === 'PLAYING' ? leadCardSuit : null}
+            onPlayCard={phase === 'PLAYING' ? onPlayCard : () => {}}
             mySeat={mySeat}
             seatName={mySeat ? SEAT_NAMES[mySeat] : undefined}
             trumpSuit={contract ? contract.suit : undefined}
