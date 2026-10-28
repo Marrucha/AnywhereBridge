@@ -8,6 +8,7 @@ import { DummyHandView } from './DummyHandView';
 import { SideDummyHandView } from './SideDummyHandView';
 import { PlayerHandView } from './PlayerHandView';
 import { LobbyOverlay } from './LobbyOverlay';
+import { TrickCenterView } from './TrickCenterView';
 import { DdsTableResult } from '../logic/dds';
 import { isCardLegal } from '../logic/play';
 import { formatContractString } from '../logic/scoring';
@@ -197,15 +198,16 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           </div>
         )}
 
-        {/* DUMMY CARDS (ONLY IF DUMMY IS NORTH) */}
-        {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat === 'N' && dummyHand && dummyHand.length > 0 && (
+        {/* NORTH HAND: Dummy during play OR full hand revealed in BOARD_RESULT */}
+        {((phase === 'PLAYING' && dummySeat === 'N' && dummyHand && dummyHand.length > 0) ||
+          (phase === 'BOARD_RESULT' && (state.dealHands?.N || dummyHand))) && (
           <div className="w-full max-w-xl mx-auto px-1">
             <DummyHandView
-              dummySeat={dummySeat}
-              dummyHand={dummyHand}
-              canIPlayDummy={canIPlayDummy}
-              leadCardSuit={leadCardSuit}
-              onPlayCard={onPlayCard}
+              dummySeat="N"
+              dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.N || dummyHand || []) : dummyHand!}
+              canIPlayDummy={false}
+              leadCardSuit={null}
+              onPlayCard={() => {}}
               trumpSuit={contract ? contract.suit : undefined}
               declarerSeat={declarerSeat}
               mySeat={mySeat}
@@ -259,14 +261,15 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
       <div className="flex-1 min-h-0 flex items-center justify-between my-0.5 sm:my-1 relative overflow-hidden">
         {/* WEST SEAT */}
         <div className="flex flex-col items-center justify-center shrink-0">
-          {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat === 'W' && dummyHand && dummyHand.length > 0 ? (
+          {(phase === 'PLAYING' && dummySeat === 'W' && dummyHand && dummyHand.length > 0) ||
+           (phase === 'BOARD_RESULT' && (state.dealHands?.W || (dummySeat === 'W' && dummyHand))) ? (
             <SideDummyHandView
               dummySeat="W"
-              dummyHand={dummyHand}
+              dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.W || dummyHand || []) : dummyHand!}
               trumpSuit={contract ? contract.suit : undefined}
-              canIPlayDummy={canIPlayDummy}
-              leadCardSuit={leadCardSuit}
-              onPlayCard={onPlayCard}
+              canIPlayDummy={false}
+              leadCardSuit={null}
+              onPlayCard={() => {}}
               seatName={seats.W?.name}
             />
           ) : (
@@ -306,72 +309,33 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             </div>
           )}
 
-          {/* Phase: PLAYING or BOARD_RESULT (Trick cards in cross orientation) */}
-          {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && (
-            <div className="relative w-40 h-40 sm:w-52 sm:h-52 flex items-center justify-center">
-              {/* North Card - SAME SIZE AS HAND (size="md") */}
-              {getPlayedCardForSeat('N') && (
-                <div className="absolute top-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('N')!.card} size="md" isPlayable={false} />
-                </div>
-              )}
-              {/* South Card - SAME SIZE AS HAND (size="md") */}
-              {getPlayedCardForSeat('S') && (
-                <div className="absolute bottom-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('S')!.card} size="md" isPlayable={false} />
-                </div>
-              )}
-              {/* West Card - SAME SIZE AS HAND (size="md") */}
-              {getPlayedCardForSeat('W') && (
-                <div className="absolute left-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('W')!.card} size="md" isPlayable={false} />
-                </div>
-              )}
-              {/* East Card - SAME SIZE AS HAND (size="md") */}
-              {getPlayedCardForSeat('E') && (
-                <div className="absolute right-0 animate-scaleUp z-10">
-                  <CardView card={getPlayedCardForSeat('E')!.card} size="md" isPlayable={false} />
-                </div>
-              )}
-
-              {/* CENTER: Winner badge if trick complete (doesn't cover any card) OR LARGE CONTRACT */}
-              {currentTrick.cards.length === 4 && currentTrick.winnerSeat ? (
-                <div
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (onCollectTrick) onCollectTrick();
-                  }}
-                  className="z-30 bg-amber-400 hover:bg-amber-300 text-slate-950 font-black px-2.5 py-1 rounded-xl shadow-2xl border-2 border-amber-100 animate-pulse cursor-pointer flex flex-col items-center justify-center text-center leading-tight"
-                >
-                  <span className="text-[11px] font-black">
-                    🎉 {SEAT_NAMES[currentTrick.winnerSeat]?.split(' ')[0]} ({currentTrick.winnerSeat})
-                  </span>
-                  <span className="text-[9px] bg-slate-950 text-amber-300 px-1.5 py-0.5 rounded font-bold mt-0.5">
-                    Dotknij 👉
-                  </span>
-                </div>
-              ) : (
-                contract && (
-                  <div className="z-10 bg-slate-950/95 border-2 border-amber-400 text-amber-300 px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl shadow-2xl font-black flex items-center gap-1.5 pointer-events-none">
-                    <span className="text-white text-base sm:text-2xl font-black">{formatContractString(contract)}</span>
-                    <span className="text-amber-400 text-xs sm:text-sm font-bold">({contract.declarer})</span>
-                  </div>
-                )
-              )}
-            </div>
-          )}
+          {/* Center Trick View or Finished Board Overview */}
+          <TrickCenterView
+            phase={phase}
+            lastResult={lastResult}
+            boardNumber={state.boardNumber}
+            contract={contract}
+            declarerSeat={declarerSeat}
+            currentTrick={currentTrick}
+            seatNames={SEAT_NAMES}
+            onCollectTrick={onCollectTrick}
+            onOpenResultModal={() => setShowResultModal(true)}
+            onNextBoard={onNextBoard}
+            onStartNewEight={onStartNewEight}
+          />
         </div>
 
         {/* EAST SEAT */}
         <div className="flex flex-col items-center justify-center shrink-0">
-          {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && dummySeat === 'E' && dummyHand && dummyHand.length > 0 ? (
+          {(phase === 'PLAYING' && dummySeat === 'E' && dummyHand && dummyHand.length > 0) ||
+           (phase === 'BOARD_RESULT' && (state.dealHands?.E || (dummySeat === 'E' && dummyHand))) ? (
             <SideDummyHandView
               dummySeat="E"
-              dummyHand={dummyHand}
+              dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.E || dummyHand || []) : dummyHand!}
               trumpSuit={contract ? contract.suit : undefined}
-              canIPlayDummy={canIPlayDummy}
-              leadCardSuit={leadCardSuit}
-              onPlayCard={onPlayCard}
+              canIPlayDummy={false}
+              leadCardSuit={null}
+              onPlayCard={() => {}}
               seatName={seats.E?.name}
             />
           ) : (
@@ -426,13 +390,14 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         )}
 
         {/* Player's Cards in Hand - Grouped by suit with overlap exactly like Dummy */}
-        {myHand && myHand.length > 0 && (
+        {((phase !== 'BOARD_RESULT' && myHand && myHand.length > 0) ||
+          (phase === 'BOARD_RESULT' && (state.dealHands?.S || myHand))) && (
           <PlayerHandView
-            hand={myHand}
-            isMyTurn={isMyTurn}
+            hand={phase === 'BOARD_RESULT' ? (state.dealHands?.S || myHand) : myHand}
+            isMyTurn={false}
             phase={phase}
-            leadCardSuit={leadCardSuit}
-            onPlayCard={onPlayCard}
+            leadCardSuit={null}
+            onPlayCard={() => {}}
             mySeat={mySeat}
             seatName={mySeat ? SEAT_NAMES[mySeat] : undefined}
             trumpSuit={contract ? contract.suit : undefined}

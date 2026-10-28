@@ -99,6 +99,7 @@ export interface RoomState {
     S: Card[];
     W: Card[];
   };
+  dealHands?: Record<Seat, Card[]>;
   myHand: Card[];
   dummyHand: Card[] | null;
   dummySeat: Seat | null;

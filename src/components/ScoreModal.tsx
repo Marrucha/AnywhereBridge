@@ -1,6 +1,6 @@
 import React from 'react';
 import { ScoreRecord } from '../types/bridge';
-import { Trophy, Trash2, X, RotateCcw } from 'lucide-react';
+import { Trophy, Trash2, X, RotateCcw, Award } from 'lucide-react';
 
 interface ScoreModalProps {
   isOpen: boolean;
@@ -24,6 +24,13 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
 
   const totalImpNS = scores.reduce((acc, curr) => acc + (curr.impNS ?? 0), 0);
   const totalImpEW = scores.reduce((acc, curr) => acc + (curr.impEW ?? 0), 0);
+
+  const avgHcpNS = scores.length > 0
+    ? (scores.reduce((acc, c) => acc + (c.hcpNS ?? 0), 0) / scores.length).toFixed(1)
+    : null;
+  const avgHcpEW = scores.length > 0
+    ? (scores.reduce((acc, c) => acc + (c.hcpEW ?? 0), 0) / scores.length).toFixed(1)
+    : null;
 
   const getVulLabel = (vul: string) => {
     switch (vul) {
@@ -130,7 +137,77 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
                     );
                   })}
                 </tbody>
+                <tfoot className="border-t-2 border-amber-400/80 bg-slate-950 font-bold">
+                  <tr>
+                    <td className="py-2.5 pl-2 text-amber-400 font-black">RAZEM</td>
+                    <td className="py-2.5 text-slate-400 text-[11px]">{scores.length} rozdań</td>
+                    <td className="py-2.5 text-slate-300 text-xs">Bilans</td>
+                    <td className="py-2.5 text-slate-300 font-mono text-xs">
+                      {avgHcpNS && avgHcpEW ? `${avgHcpNS} : ${avgHcpEW}` : '—'}
+                    </td>
+                    <td className="py-2.5 text-slate-400 text-[11px]">Suma punktów</td>
+                    <td className={`py-2.5 text-right font-black font-mono ${totalNS >= 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      {totalNS >= 0 ? `+${totalNS}` : totalNS}
+                    </td>
+                    <td className={`py-2.5 text-right pr-2 font-mono font-black text-sm ${
+                      totalImpNS > 0 ? 'text-emerald-400' : totalImpNS < 0 ? 'text-rose-400' : 'text-slate-400'
+                    }`}>
+                      {totalImpNS > 0 ? `+${totalImpNS}` : totalImpNS}
+                    </td>
+                  </tr>
+                </tfoot>
               </table>
+
+              {/* Podsumowanie końcowe na dole tabeli wyników */}
+              <div className="mt-4 p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-2 border-amber-400/90 shadow-xl">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-5 h-5 text-amber-400" />
+                    <div>
+                      <h4 className="font-black text-sm sm:text-base text-white">
+                        Podsumowanie Końcowe ({scores.length} {scores.length === 1 ? 'rozdanie' : scores.length < 5 ? 'rozdania' : 'rozdań'})
+                      </h4>
+                      <p className="text-[11px] text-slate-400">Oficjalny protokół zapisu brydżowego (Milton PC & WBF IMP)</p>
+                    </div>
+                  </div>
+                  <span className={`text-xs font-black px-3 py-1 rounded-full border ${
+                    totalImpNS > 0 
+                      ? 'bg-emerald-950 text-emerald-300 border-emerald-500/60' 
+                      : totalImpNS < 0 
+                      ? 'bg-rose-950 text-rose-300 border-rose-500/60' 
+                      : 'bg-slate-800 text-slate-300 border-slate-600'
+                  }`}>
+                    {totalImpNS > 0 ? `🏆 Prowadzenie N-S: +${totalImpNS} IMP` : totalImpNS < 0 ? `🏆 Prowadzenie E-W: +${Math.abs(totalImpNS)} IMP` : '🤝 REMIS'}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 text-center text-xs">
+                  <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Bilans IMP (N-S)</span>
+                    <span className={`text-base sm:text-lg font-black font-mono ${totalImpNS >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                      {totalImpNS >= 0 ? `+${totalImpNS}` : totalImpNS} <span className="text-xs">IMP</span>
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Bilans IMP (E-W)</span>
+                    <span className={`text-base sm:text-lg font-black font-mono ${totalImpEW >= 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+                      {totalImpEW >= 0 ? `+${totalImpEW}` : totalImpEW} <span className="text-xs">IMP</span>
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Zapis łączny (N-S)</span>
+                    <span className={`text-base sm:text-lg font-black font-mono ${totalNS >= 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                      {totalNS >= 0 ? `+${totalNS}` : totalNS} <span className="text-xs">pkt</span>
+                    </span>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Zapis łączny (E-W)</span>
+                    <span className={`text-base sm:text-lg font-black font-mono ${totalEW >= 0 ? 'text-amber-400' : 'text-slate-400'}`}>
+                      {totalEW >= 0 ? `+${totalEW}` : totalEW} <span className="text-xs">pkt</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>

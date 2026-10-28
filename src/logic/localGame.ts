@@ -54,6 +54,7 @@ export function createLocalBotGame(
     ].filter(p => p.seat !== mySeat).concat([{ id: 'me', name: myName, seat: mySeat }]),
     seats,
     hands,
+    dealHands: hands,
     myHand: hands[mySeat],
     dummyHand: null,
     dummySeat: null,
@@ -155,6 +156,7 @@ export function applyLocalBid(
 
   const nextState: RoomState = {
     ...state,
+    dealHands: session.dealHands,
     phase: nextPhase,
     bids: updatedBids,
     currentBidder: nextCurrentBidder,
@@ -390,9 +392,10 @@ export function resolveCompletedTrick(session: LocalGameSession): LocalGameSessi
     const finalState: RoomState = {
       ...state,
       phase: 'BOARD_RESULT',
-      hands: fullHands,
-      myHand: fullHands['S'] || [],
-      dummyHand,
+      dealHands: session.dealHands || hands,
+      hands: session.dealHands || hands,
+      myHand: (session.dealHands && session.dealHands['S']) || fullHands['S'] || [],
+      dummyHand: state.dummySeat ? ((session.dealHands && session.dealHands[state.dummySeat]) || dummyHand) : null,
       currentTrick: completedTrick, // 13th trick stays on table
       pastTricks: nextPastTricks,
       tricksWonNS: wonNS,

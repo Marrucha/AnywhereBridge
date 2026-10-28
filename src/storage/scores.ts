@@ -1,9 +1,19 @@
 import { ScoreRecord, Seat } from '../types/bridge';
 
-const SCORES_STORAGE_KEY = 'anywhere_bridge_history_v1';
+const SCORES_STORAGE_KEY = 'anywhere_bridge_history_v2';
+const LEGACY_STORAGE_KEY = 'anywhere_bridge_history_v1';
 const PLAYER_ID_KEY = 'anywhere_bridge_player_id';
 const PLAYER_NAME_KEY = 'anywhere_bridge_player_name';
 const PLAYER_SEAT_KEY = 'anywhere_bridge_seat';
+
+// Clean up legacy store once to ensure completely fresh, clean scoreboard
+try {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
+  }
+} catch {
+  // ignore in non-browser env
+}
 
 export function getStoredScores(): ScoreRecord[] {
   try {
@@ -56,6 +66,7 @@ export function saveScoreRecord(record: ScoreRecord): ScoreRecord[] {
 export function clearStoredScores(): void {
   try {
     localStorage.removeItem(SCORES_STORAGE_KEY);
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
   } catch (e) {
     console.error('Failed to clear stored bridge scores:', e);
   }
