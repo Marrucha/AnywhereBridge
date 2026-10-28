@@ -48,7 +48,7 @@ export function useLocalBotGame(
       });
   };
 
-  const startBotGame = (seat: Seat = activeSeat, boardNumber: number = 4) => {
+  const startBotGame = (seat: Seat = activeSeat, boardNumber: number = 1) => {
     if (botTimerRef.current) clearTimeout(botTimerRef.current);
     const session = createLocalBotGame(boardNumber, seat, playerName);
     setLocalSession(session);

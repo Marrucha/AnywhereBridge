@@ -10,6 +10,8 @@ import { calculateDealHcp, calculateBoardImp } from './impScoring';
 export interface LocalGameSession {
   state: RoomState;
   fullHands: Record<Seat, Card[]>;
+  dealHands: Record<Seat, Card[]>;
+  dealHcp: { hcpNS: number; hcpEW: number };
   isBotGame: boolean;
 }
 
@@ -21,6 +23,7 @@ export function createLocalBotGame(
   const setup = getBoardSetup(boardNumber);
   const deck = createDeck();
   const hands = dealDeck(deck);
+  const dealHcp = calculateDealHcp(hands);
 
   const botNames: Record<Seat, string> = {
     N: 'Bot N (Północ)',
@@ -75,6 +78,8 @@ export function createLocalBotGame(
   return {
     state,
     fullHands: hands,
+    dealHands: hands,
+    dealHcp,
     isBotGame: true,
   };
 }
@@ -111,7 +116,7 @@ export function applyLocalBid(
 
   if (biddingStatus.isFinished) {
     if (biddingStatus.isAllPass) {
-      const { hcpNS, hcpEW } = calculateDealHcp(fullHands);
+      const { hcpNS, hcpEW } = session.dealHcp || calculateDealHcp(session.dealHands || fullHands);
       const impRes = calculateBoardImp(0, hcpNS, state.vulnerability);
       const impStr = impRes.impNS > 0 ? `+${impRes.impNS} IMP` : impRes.impNS < 0 ? `${impRes.impNS} IMP` : `0 IMP`;
       nextPhase = 'BOARD_RESULT';
@@ -356,7 +361,7 @@ export function resolveCompletedTrick(session: LocalGameSession): LocalGameSessi
     const diffStr = score.diff === 0 ? '=' : score.diff > 0 ? `+${score.diff}` : `${score.diff}`;
     const baseResultDetail = `${cStr} ${diffStr} (${score.points >= 0 ? '+' : ''}${score.points})`;
 
-    const { hcpNS, hcpEW } = calculateDealHcp(fullHands);
+    const { hcpNS, hcpEW } = session.dealHcp || calculateDealHcp(session.dealHands || fullHands);
     const impRes = calculateBoardImp(score.scoreNS, hcpNS, state.vulnerability);
     const impStr = impRes.impNS > 0 ? `+${impRes.impNS} IMP` : impRes.impNS < 0 ? `${impRes.impNS} IMP` : `0 IMP`;
     const fullResultDetail = `${baseResultDetail} • ${impStr} (PC: ${hcpNS}-${hcpEW})`;

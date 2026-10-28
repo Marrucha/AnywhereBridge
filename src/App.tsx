@@ -232,7 +232,7 @@ export const App: React.FC = () => {
 
   const handleStartGame = () => {
     if (isBotGame) {
-      startBotGame(mySeat || 'S', 4);
+      startBotGame(mySeat || 'S', 1);
     } else {
       sendMessage({ type: 'start_game' });
     }
@@ -441,7 +441,7 @@ export const App: React.FC = () => {
             onNextBoard={handleNextBoard}
             onResetRoom={handleResetRoom}
             onOpenQR={() => setIsQROpen(true)}
-            onStartBotGame={() => startBotGame(mySeat || 'S', 4)}
+            onStartBotGame={() => startBotGame(mySeat || 'S', 1)}
             onStartNewEight={handleStartNewEight}
             isBotGame={isBotGame}
             ddsResult={ddsResult}
@@ -451,7 +451,7 @@ export const App: React.FC = () => {
           <ConnectingScreen
             roomId={roomId}
             activeWsUrl={activeWsUrl}
-            onStartBotGame={() => startBotGame(mySeat || 'S', 4)}
+            onStartBotGame={() => startBotGame(mySeat || 'S', 1)}
             onUpdateConnection={handleUpdateConnection}
             onOpenConnectionModal={() => setIsConnectionOpen(true)}
           />
