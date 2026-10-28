@@ -590,6 +590,30 @@ public class LocalAirplaneServer extends NanoWSD {
                 history.clear();
                 broadcastState();
             }
+
+            if ("chat".equals(type)) {
+                String text = msg.optString("text", "").trim();
+                if (!text.isEmpty()) {
+                    String senderName = (ws.playerName != null && !ws.playerName.isEmpty()) ? ws.playerName : msg.optString("senderName", "Gracz");
+                    String senderSeat = ws.seat != null ? ws.seat : msg.optString("senderSeat", "");
+                    JSONObject chatMsg = new JSONObject();
+                    chatMsg.put("id", "c_" + System.currentTimeMillis() + "_" + Math.round(Math.random() * 1000));
+                    chatMsg.put("senderName", senderName);
+                    chatMsg.put("senderSeat", senderSeat);
+                    chatMsg.put("text", text);
+                    chatMsg.put("timestamp", System.currentTimeMillis());
+
+                    JSONObject broadcastObj = new JSONObject();
+                    broadcastObj.put("type", "chat_message");
+                    broadcastObj.put("message", chatMsg);
+
+                    for (BridgeWebSocket client : clients) {
+                        try {
+                            client.send(broadcastObj.toString());
+                        } catch (Exception ignored) {}
+                    }
+                }
+            }
         } catch (Exception e) {
             Log.e(TAG, "Error processing client message", e);
         }

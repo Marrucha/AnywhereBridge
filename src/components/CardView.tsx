@@ -37,10 +37,10 @@ export const CardView: React.FC<CardViewProps> = ({
   const textColor = SUIT_TEXT_COLORS[card.suit];
   const rankLabel = card.rank === 'T' ? '10' : card.rank;
 
-  // Compact responsive sizes: 'dummy' is exactly ~10% smaller than 'md' (hand)
+  // Compact responsive sizes: 'dummy' is exactly fit for 4-suit vertical columns without overflow
   const sizeClasses = {
     sm: 'w-7 h-10 sm:w-9 sm:h-13 text-[9px] sm:text-[10px] rounded',
-    dummy: 'w-[32px] h-[48px] sm:w-[43px] sm:h-[65px] text-[9px] sm:text-xs rounded-md',
+    dummy: 'w-[30px] h-[44px] sm:w-[38px] sm:h-[56px] text-[9px] sm:text-[11px] rounded-md',
     md: 'w-[36px] h-[54px] sm:w-[48px] sm:h-[72px] text-[10px] sm:text-xs rounded-md',
     lg: 'w-12 h-18 sm:w-16 sm:h-24 text-xs sm:text-base rounded-xl',
   }[size];

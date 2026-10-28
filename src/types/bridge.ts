@@ -121,6 +121,14 @@ export interface RoomState {
   hostId: string | null;
 }
 
+export interface ChatMessage {
+  id: string;
+  senderName: string;
+  senderSeat: Seat | null;
+  text: string;
+  timestamp: number;
+}
+
 export type ClientMessage =
   | { type: 'join'; roomId: string; playerId: string; playerName: string }
   | { type: 'take_seat'; seat: Seat }
@@ -130,9 +138,11 @@ export type ClientMessage =
   | { type: 'play_card'; cardId: string }
   | { type: 'next_board' }
   | { type: 'reset_room' }
-  | { type: 'clear_history' };
+  | { type: 'clear_history' }
+  | { type: 'chat'; text: string; senderName?: string; senderSeat?: Seat };
 
 export type ServerMessage =
   | { type: 'state_update'; state: RoomState; yourSeat: Seat | null }
   | { type: 'room_reset' }
-  | { type: 'error'; message: string };
+  | { type: 'error'; message: string }
+  | { type: 'chat_message'; message: ChatMessage };

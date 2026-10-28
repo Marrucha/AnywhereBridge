@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card, Contract, PlayedCard, RoomState, Seat, Trick } from '../types/bridge';
+import { Card, ChatMessage, Contract, PlayedCard, RoomState, Seat, Trick } from '../types/bridge';
 import { CardView } from './CardView';
 import { BiddingBox } from './BiddingBox';
 import { BiddingTray } from './BiddingTray';
@@ -32,6 +32,9 @@ interface BridgeTableProps {
   ddsResult?: DdsTableResult | null;
   ddsLoading?: boolean;
   onStartNewEight?: () => void;
+  onOpenScores?: () => void;
+  onOpenChat?: () => void;
+  latestChatMessage?: ChatMessage | null;
 }
 
 const SEAT_NAMES: Record<Seat, string> = {
@@ -57,6 +60,9 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   ddsResult = null,
   ddsLoading = false,
   onStartNewEight,
+  onOpenScores,
+  onOpenChat,
+  latestChatMessage = null,
 }) => {
   const {
     phase,
@@ -150,6 +156,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           onClose={() => setShowResultModal(false)}
           onNextBoard={onNextBoard}
           onStartNewEight={onStartNewEight}
+          onOpenScores={onOpenScores}
         />
       )}
 
@@ -217,8 +224,8 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         )}
       </div>
 
-      {/* PROMINENT TRICK SCOREBOARD BAR */}
-      {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && contract && (
+      {/* PROMINENT TRICK SCOREBOARD BAR (Active only during play) */}
+      {phase === 'PLAYING' && contract && (
         <div className="w-full max-w-xl mx-auto px-2 py-0.5 bg-slate-950/90 border border-slate-700/80 rounded-lg flex items-center justify-between text-[11px] sm:text-xs font-bold shadow-md my-0.5 shrink-0">
           {/* N-S tricks */}
           <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${
@@ -258,7 +265,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
       )}
 
       {/* MIDDLE SECTION: WEST, FELT TABLE (TRICK / AUCTION), EAST */}
-      <div className="flex-1 min-h-0 flex items-center justify-between my-0.5 sm:my-1 relative overflow-hidden">
+      <div className="flex-1 min-h-0 flex items-center justify-between my-0.5 sm:my-1 relative">
         {/* WEST SEAT */}
         <div className="flex flex-col items-center justify-center shrink-0">
           {(phase === 'PLAYING' && dummySeat === 'W' && dummyHand && dummyHand.length > 0) ||
@@ -404,6 +411,20 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           />
         )}
       </div>
+
+      {/* FLOATING RECENT CHAT BUBBLE OVER TABLE */}
+      {latestChatMessage && (
+        <div
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onOpenChat) onOpenChat();
+          }}
+          className="absolute bottom-20 left-3 sm:left-6 z-30 max-w-[220px] sm:max-w-xs bg-slate-900/95 border border-emerald-400 text-white px-3 py-1.5 rounded-2xl shadow-2xl text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer animate-scaleUp hover:bg-slate-800 transition"
+        >
+          <span className="text-emerald-400 font-bold shrink-0">💬 {latestChatMessage.senderName}:</span>
+          <span className="truncate text-slate-200">{latestChatMessage.text}</span>
+        </div>
+      )}
     </div>
   );
 };

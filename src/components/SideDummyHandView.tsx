@@ -65,7 +65,7 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
   });
 
   return (
-    <div className="flex flex-col gap-0.5 bg-slate-950/95 border-2 border-amber-400/80 rounded-xl p-1 sm:p-1.5 shadow-2xl shrink-0 animate-fadeIn">
+    <div className="flex flex-col gap-0.5 bg-slate-950/95 border-2 border-amber-400/80 rounded-xl p-0.5 sm:p-1 shadow-2xl shrink-0 animate-fadeIn max-h-[96%] overflow-y-auto overflow-x-hidden">
       {/* Header */}
       <div className="text-center pb-0.5 border-b border-slate-700/80 leading-tight">
         <div className="text-[10px] sm:text-xs font-black text-amber-300">
@@ -77,13 +77,13 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
       </div>
 
       {/* 4 Suits in bridge column notation with REAL PLAYING CARDS (SAME SIZE AS DUMMY N: size="dummy") */}
-      <div className="space-y-1 pt-0.5">
+      <div className="space-y-0.5 sm:space-y-1 pt-0.5">
         {suitsOrder.map(suit => {
           const cards = cardsBySuit[suit];
           return (
-            <div key={suit} className="flex items-center gap-1 min-h-[48px] sm:min-h-[66px]">
+            <div key={suit} className="flex items-center gap-0.5 sm:gap-1 min-h-[42px] sm:min-h-[56px]">
               {/* Suit marker */}
-              <span className={`text-sm sm:text-base font-black w-4 text-center shrink-0 ${SUIT_COLORS[suit]}`}>
+              <span className={`text-sm sm:text-base font-black w-3.5 sm:w-4 text-center shrink-0 ${SUIT_COLORS[suit]}`}>
                 {SUIT_SYMBOLS[suit]}
               </span>
 
@@ -98,7 +98,7 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
                       <div
                         key={card.id}
                         className={`transition-transform ${
-                          idx > 0 ? '-ml-[19px] sm:-ml-[25px]' : ''
+                          idx > 0 ? '-ml-[18px] sm:-ml-[23px]' : ''
                         } ${isPlayable ? 'hover:-translate-y-1 z-20' : 'z-10'}`}
                       >
                         <CardView

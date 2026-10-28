@@ -1,11 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { RoomState, Seat, ClientMessage, ServerMessage, ScoreRecord } from './types/bridge';
+import { RoomState, Seat, ClientMessage, ServerMessage, ScoreRecord, ChatMessage } from './types/bridge';
 import { BridgeTable } from './components/BridgeTable';
 import { ScoreModal } from './components/ScoreModal';
 import { QRModal } from './components/QRModal';
 import { ConnectionModal } from './components/ConnectionModal';
 import { PlayersModal } from './components/PlayersModal';
-import { VulBadge } from './components/VulBadge';
+import { TableChatModal } from './components/TableChatModal';
+import { AppHeader } from './components/AppHeader';
 import { ConnectingScreen } from './components/ConnectingScreen';
 import { EightBoardSummary } from './components/EightBoardSummary';
 import { useLocalBotGame } from './hooks/useLocalBotGame';
@@ -19,7 +20,6 @@ import {
   getStoredSeat,
   saveStoredSeat,
 } from './storage/scores';
-import { Plane, Trophy, QrCode, RotateCcw, Wifi, WifiOff, Settings, Users, Bot } from 'lucide-react';
 
 const DEFAULT_ROOM_ID = 'air-737';
 
@@ -65,6 +65,11 @@ export const App: React.FC = () => {
   const [isQROpen, setIsQROpen] = useState(false);
   const [isConnectionOpen, setIsConnectionOpen] = useState(false);
   const [isPlayersOpen, setIsPlayersOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [latestChatMessage, setLatestChatMessage] = useState<ChatMessage | null>(null);
+  const chatBubbleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [localScores, setLocalScores] = useState<ScoreRecord[]>(() => getStoredScores());
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -172,6 +177,12 @@ export const App: React.FC = () => {
             } else if (msg.type === 'room_reset') {
               setMySeat(null);
               saveStoredSeat(null);
+            } else if (msg.type === 'chat_message') {
+              setChatMessages((prev) => [...prev, msg.message]);
+              setLatestChatMessage(msg.message);
+              setUnreadChatCount((prev) => (isChatOpen ? 0 : prev + 1));
+              if (chatBubbleTimeoutRef.current) clearTimeout(chatBubbleTimeoutRef.current);
+              chatBubbleTimeoutRef.current = setTimeout(() => setLatestChatMessage(null), 5000);
             }
           } catch (e) {
             console.error('Error handling WS message:', e);
@@ -292,6 +303,53 @@ export const App: React.FC = () => {
     sendMessage({ type: 'clear_history' });
   };
 
+  const handleSendChatMessage = (text: string) => {
+    const msg: ChatMessage = {
+      id: `c_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      senderName: playerName || 'Gracz',
+      senderSeat: mySeat || 'S',
+      text,
+      timestamp: Date.now(),
+    };
+
+    if (connected && wsRef.current) {
+      sendMessage({
+        type: 'chat',
+        text,
+        senderName: playerName || 'Gracz',
+        senderSeat: mySeat || 'S',
+      });
+    } else {
+      setChatMessages((prev) => [...prev, msg]);
+      setLatestChatMessage(msg);
+      if (chatBubbleTimeoutRef.current) clearTimeout(chatBubbleTimeoutRef.current);
+      chatBubbleTimeoutRef.current = setTimeout(() => setLatestChatMessage(null), 5000);
+
+      if (isBotGame) {
+        setTimeout(() => {
+          const botReplies = [
+            { seat: 'N' as Seat, name: 'Bot N (Partner)', text: 'Gramy dalej! 👍' },
+            { seat: 'W' as Seat, name: 'Bot W', text: 'Powodzenia przy stole! 🍀' },
+            { seat: 'E' as Seat, name: 'Bot E', text: 'Dobra partia! 👏' },
+          ];
+          const reply = botReplies[Math.floor(Math.random() * botReplies.length)];
+          const botMsg: ChatMessage = {
+            id: `c_bot_${Date.now()}`,
+            senderName: reply.name,
+            senderSeat: reply.seat,
+            text: reply.text,
+            timestamp: Date.now(),
+          };
+          setChatMessages((prev) => [...prev, botMsg]);
+          setLatestChatMessage(botMsg);
+          setUnreadChatCount((prev) => (isChatOpen ? 0 : prev + 1));
+          if (chatBubbleTimeoutRef.current) clearTimeout(chatBubbleTimeoutRef.current);
+          chatBubbleTimeoutRef.current = setTimeout(() => setLatestChatMessage(null), 5000);
+        }, 1100);
+      }
+    }
+  };
+
   const handleUpdateConnection = (newServer: string, newRoom: string) => {
     localStorage.setItem('anywhere_bridge_server_addr', newServer);
     setServerAddress(newServer);
@@ -310,121 +368,25 @@ export const App: React.FC = () => {
   return (
     <div className="flex flex-col h-screen w-screen bg-felt-dark text-slate-100 overflow-hidden font-sans">
       {/* TOP HUD BAR */}
-      <header className="h-14 bg-slate-950/90 border-b border-slate-800/80 px-3 sm:px-5 flex items-center justify-between shrink-0 shadow-lg z-20">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="p-1.5 bg-amber-500/10 text-amber-400 rounded-lg flex items-center justify-center">
-            <Plane className="w-5 h-5 -rotate-45" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-black text-sm sm:text-base tracking-tight text-white">anywhereBridge</span>
-              <span className="bg-slate-800 text-amber-400 font-mono text-[10px] font-bold px-1.5 py-0.5 rounded border border-slate-700">
-                {roomId}
-              </span>
-              {isBotGame && (
-                <div className="flex items-center gap-1.5 ml-1">
-                  <span className="bg-indigo-950/90 border border-indigo-500/50 text-indigo-300 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
-                    <Bot className="w-3 h-3 text-indigo-400" />
-                    <span>Boty (Test)</span>
-                  </span>
-                  <button
-                    type="button"
-                    onClick={stopBotGame}
-                    className="text-[10px] text-slate-400 hover:text-white underline transition"
-                    title="Wyjdź z gry z botami"
-                  >
-                    Wyjdź
-                  </button>
-                </div>
-              )}
-            </div>
-            {effectiveState && (
-              <div className="flex items-center gap-2 text-[10px] text-slate-400">
-                <span>Rozdanie #{effectiveState.boardNumber}</span>
-                <span>•</span>
-                <span>Rozdający: <strong className="text-slate-200">{effectiveState.dealer}</strong></span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Center Vulnerability Status */}
-        <div className="flex items-center gap-1 sm:gap-2">
-          {effectiveState && <VulBadge vulnerability={effectiveState.vulnerability} />}
-        </div>
-
-        {/* Right Action Buttons */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Connection status indicator / Settings */}
-          <button
-            type="button"
-            onClick={() => setIsConnectionOpen(true)}
-            className="flex items-center text-xs mr-1 p-1.5 rounded-lg hover:bg-slate-800 transition border border-slate-800"
-            title={connected ? `Połączono: ${activeWsUrl} (Kliknij by zmienić)` : `Rozłączono (${activeWsUrl}) - Kliknij by skonfigurować`}
-          >
-            {connected ? (
-              <Wifi className="w-4 h-4 text-emerald-400 animate-pulse" />
-            ) : (
-              <WifiOff className="w-4 h-4 text-rose-500" />
-            )}
-          </button>
-
-          {/* Players in room counter button */}
-          {effectiveState && (
-            <button
-              type="button"
-              onClick={() => setIsPlayersOpen(true)}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-emerald-500/50 rounded-lg text-xs font-bold transition shadow"
-              title="Zobacz listę graczy w pokoju"
-            >
-              <Users className="w-4 h-4 text-emerald-400" />
-              <span>
-                {effectiveState.connectedCount !== undefined
-                  ? effectiveState.connectedCount
-                  : Math.max((effectiveState.connectedPlayers || []).length, Object.values(effectiveState.seats).filter(Boolean).length)}
-              </span>
-              <span className="hidden md:inline text-slate-400 font-normal">w pokoju</span>
-            </button>
-          )}
-
-          {/* Scorepad button */}
-          <button
-            type="button"
-            onClick={() => setIsScoreOpen(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-slate-700 rounded-lg text-xs font-bold transition shadow"
-            title="Otwórz protokół wyników w pamięci lokalnej"
-          >
-            <Trophy className="w-4 h-4" />
-            <span className="hidden sm:inline">Wyniki</span>
-            {localScores.length > 0 && (
-              <span className="bg-amber-500 text-slate-950 text-[10px] px-1 rounded-full font-black">
-                {localScores.length}
-              </span>
-            )}
-          </button>
-
-          {/* QR Code button */}
-          <button
-            type="button"
-            onClick={() => setIsQROpen(true)}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-400/40 rounded-lg text-xs font-bold transition shadow"
-            title="Pokaż kod QR dla współgraczy w samolocie"
-          >
-            <QrCode className="w-4 h-4" />
-            <span>Kod QR</span>
-          </button>
-
-          {/* Kill-switch / Reset button */}
-          <button
-            type="button"
-            onClick={handleResetRoom}
-            className="p-1.5 bg-slate-900 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 border border-slate-700 hover:border-rose-800 rounded-lg transition"
-            title="🛑 Zresetuj pokój do poczekalni"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
+      <AppHeader
+        roomId={roomId}
+        isBotGame={isBotGame}
+        onStopBotGame={stopBotGame}
+        effectiveState={effectiveState}
+        connected={connected}
+        activeWsUrl={activeWsUrl}
+        onOpenConnection={() => setIsConnectionOpen(true)}
+        onOpenPlayers={() => setIsPlayersOpen(true)}
+        onOpenScores={() => setIsScoreOpen(true)}
+        localScoresCount={localScores.length}
+        onOpenQR={() => setIsQROpen(true)}
+        onOpenChat={() => {
+          setIsChatOpen(true);
+          setUnreadChatCount(0);
+        }}
+        unreadChatCount={unreadChatCount}
+        onResetRoom={handleResetRoom}
+      />
 
       {/* MAIN GAME TABLE VIEW */}
       <main className="flex-1 relative overflow-hidden">
@@ -441,11 +403,16 @@ export const App: React.FC = () => {
             onNextBoard={handleNextBoard}
             onResetRoom={handleResetRoom}
             onOpenQR={() => setIsQROpen(true)}
+            onOpenScores={() => setIsScoreOpen(true)}
+            onOpenChat={() => {
+              setIsChatOpen(true);
+              setUnreadChatCount(0);
+            }}
+            latestChatMessage={latestChatMessage}
             onStartBotGame={() => startBotGame(mySeat || 'S', 1)}
             onStartNewEight={handleStartNewEight}
             isBotGame={isBotGame}
-            ddsResult={ddsResult}
-            ddsLoading={ddsLoading}
+            ddsResult={ddsResult} ddsLoading={ddsLoading}
           />
         ) : (
           <ConnectingScreen
@@ -459,6 +426,18 @@ export const App: React.FC = () => {
       </main>
 
       {/* MODALS */}
+      <TableChatModal
+        isOpen={isChatOpen}
+        onClose={() => {
+          setIsChatOpen(false);
+          setUnreadChatCount(0);
+        }}
+        messages={chatMessages}
+        onSendMessage={handleSendChatMessage}
+        mySeat={effectiveMySeat}
+        myName={playerName}
+      />
+
       <ScoreModal
         isOpen={isScoreOpen}
         onClose={() => setIsScoreOpen(false)}

@@ -13,6 +13,7 @@ interface BoardResultModalProps {
   onClose: () => void;
   onNextBoard: () => void;
   onStartNewEight?: () => void;
+  onOpenScores?: () => void;
 }
 
 export const BoardResultModal: React.FC<BoardResultModalProps> = ({
@@ -24,6 +25,7 @@ export const BoardResultModal: React.FC<BoardResultModalProps> = ({
   onClose,
   onNextBoard,
   onStartNewEight,
+  onOpenScores,
 }) => {
   const isEightFinished = boardNumber % 8 === 0;
 
@@ -91,30 +93,43 @@ export const BoardResultModal: React.FC<BoardResultModalProps> = ({
           wonEW={lastResult.tricksWonEW}
         />
 
-        <div className="flex gap-2 pt-1">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-1">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition border border-slate-700"
+            className="py-2.5 px-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-[11px] sm:text-xs rounded-xl transition border border-slate-700 flex items-center justify-center gap-1"
           >
             👁️ Podejrzyj stół
           </button>
+
+          {onOpenScores ? (
+            <button
+              type="button"
+              onClick={onOpenScores}
+              className="py-2.5 px-1 bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] sm:text-xs rounded-xl transition border border-amber-500/50 shadow flex items-center justify-center gap-1"
+            >
+              📊 Wyniki
+            </button>
+          ) : (
+            <div />
+          )}
+
           {isEightFinished && onStartNewEight ? (
             <button
               type="button"
               onClick={onStartNewEight}
-              className="flex-1 py-2.5 bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500 text-white font-black text-xs sm:text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-1.5"
+              className="py-2.5 px-1 bg-gradient-to-r from-amber-600 to-emerald-600 hover:from-amber-500 hover:to-emerald-500 text-white font-black text-[11px] sm:text-xs rounded-xl transition shadow flex items-center justify-center gap-1"
             >
-              <RotateCcw className="w-4 h-4" />
-              Zacznij nową 8 (#1)
+              <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+              Nowa 8 (#1)
             </button>
           ) : (
             <button
               type="button"
               onClick={onNextBoard}
-              className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-1.5"
+              className="py-2.5 px-1 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] sm:text-xs rounded-xl transition shadow flex items-center justify-center gap-1"
             >
-              <RotateCcw className="w-4 h-4" />
+              <RotateCcw className="w-3.5 h-3.5 shrink-0" />
               Następne (#{boardNumber + 1})
             </button>
           )}
