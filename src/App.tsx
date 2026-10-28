@@ -32,11 +32,19 @@ export const App: React.FC = () => {
   const [playerId] = useState<string>(() => getOrCreatePlayerId());
   const [playerName, setPlayerName] = useState<string>(() => {
     const saved = getStoredPlayerName();
+    const isScannedJoin = new URLSearchParams(window.location.search).has('room');
+    if (saved && !saved.startsWith('Gracz_')) return saved;
+    if (!isScannedJoin) {
+      saveStoredPlayerName('Hey Ho Maro');
+      return 'Hey Ho Maro';
+    }
     if (saved) return saved;
     const defaultName = 'Gracz_' + Math.floor(Math.random() * 900 + 100);
     saveStoredPlayerName(defaultName);
     return defaultName;
   });
+  const playerNameRef = useRef<string>(playerName);
+  playerNameRef.current = playerName;
 
   const [serverAddress, setServerAddress] = useState<string>(() => {
     const params = new URLSearchParams(window.location.search);
@@ -150,7 +158,7 @@ export const App: React.FC = () => {
             type: 'join',
             roomId,
             playerId,
-            playerName,
+            playerName: playerNameRef.current,
           };
           ws.send(JSON.stringify(joinMsg));
 
@@ -215,11 +223,19 @@ export const App: React.FC = () => {
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (wsRef.current) wsRef.current.close();
     };
-  }, [roomId, playerId, playerName, serverAddress]);
+  }, [roomId, playerId, serverAddress]);
 
   const sendMessage = (msg: ClientMessage) => {
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(msg));
+    }
+  };
+
+  const handleChangePlayerName = (newName: string) => {
+    setPlayerName(newName);
+    saveStoredPlayerName(newName);
+    if (!isBotGame) {
+      sendMessage({ type: 'join', roomId, playerId, playerName: newName });
     }
   };
 
@@ -396,6 +412,8 @@ export const App: React.FC = () => {
           <BridgeTable
             state={effectiveState}
             mySeat={effectiveMySeat}
+            playerName={playerName}
+            onChangePlayerName={handleChangePlayerName}
             onTakeSeat={handleTakeSeat}
             onLeaveSeat={handleLeaveSeat}
             onStartGame={handleStartGame}

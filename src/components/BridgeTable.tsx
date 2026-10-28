@@ -18,6 +18,8 @@ import { Users, AlertCircle, Play, RotateCcw, QrCode, Bot } from 'lucide-react';
 interface BridgeTableProps {
   state: RoomState;
   mySeat: Seat | null;
+  playerName: string;
+  onChangePlayerName: (name: string) => void;
   onTakeSeat: (seat: Seat) => void;
   onLeaveSeat: () => void;
   onStartGame: () => void;
@@ -47,6 +49,8 @@ const SEAT_NAMES: Record<Seat, string> = {
 export const BridgeTable: React.FC<BridgeTableProps> = ({
   state,
   mySeat,
+  playerName,
+  onChangePlayerName,
   onTakeSeat,
   onLeaveSeat,
   onStartGame,
@@ -141,6 +145,8 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         <LobbyOverlay
           state={state}
           mySeat={mySeat}
+          playerName={playerName}
+          onChangePlayerName={onChangePlayerName}
           seats={seats}
           connectedPlayers={connectedPlayers}
           totalPlayersInRoom={totalPlayersInRoom}

@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { ConnectedPlayer, RoomState, Seat } from '../types/bridge';
-import { Users, AlertCircle, Play, QrCode, Bot } from 'lucide-react';
+import { Users, AlertCircle, Play, QrCode, UserCheck } from 'lucide-react';
 
 interface LobbyOverlayProps {
   state: RoomState;
   mySeat: Seat | null;
+  playerName: string;
+  onChangePlayerName: (name: string) => void;
   seats: RoomState['seats'];
   connectedPlayers: ConnectedPlayer[];
   totalPlayersInRoom: number;
@@ -22,27 +24,75 @@ interface LobbyOverlayProps {
 export const LobbyOverlay: React.FC<LobbyOverlayProps> = ({
   state,
   mySeat,
+  playerName,
+  onChangePlayerName,
   seats,
   connectedPlayers,
   totalPlayersInRoom,
   seatedCount,
-  allSeatsOccupied,
   unseatedList,
   seatNames,
   onTakeSeat,
   onLeaveSeat,
   onOpenQR,
-  onStartBotGame,
   onStartGame,
 }) => {
+  const isScannedUrl = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('room');
+  const isAutoName = playerName.startsWith('Gracz_');
+  const [nameInput, setNameInput] = useState<string>(() => (isScannedUrl && isAutoName ? '' : playerName));
+
+  useEffect(() => {
+    if (!(isScannedUrl && playerName.startsWith('Gracz_') && nameInput === '')) {
+      setNameInput(playerName);
+    }
+  }, [playerName]);
+
+  const handleSaveName = (val: string) => {
+    setNameInput(val);
+    const trimmed = val.trim();
+    if (trimmed.length > 0) {
+      onChangePlayerName(trimmed);
+    }
+  };
+
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm">
-      <div className="bg-slate-900 border-2 border-amber-500/50 rounded-2xl p-4 sm:p-6 max-w-lg w-full text-center shadow-2xl space-y-3.5 max-h-[92vh] overflow-y-auto">
-        <div className="space-y-1">
-          <h2 className="text-xl sm:text-2xl font-black text-amber-400">Poczekalnia przy stole (Lobby)</h2>
-          <p className="text-xs sm:text-sm text-slate-300">
-            Do rozpoczęcia gry potrzebnych jest 4 graczy. Każdy musi wybrać swoje krzesło.
+    <div className="absolute inset-0 z-30 flex items-center justify-center p-2.5 sm:p-4 bg-black/60 backdrop-blur-sm">
+      <div className="bg-slate-900 border-2 border-amber-500/50 rounded-2xl p-3.5 sm:p-6 max-w-lg w-full text-center shadow-2xl space-y-3 max-h-[94vh] overflow-y-auto">
+        <div className="space-y-0.5">
+          <h2 className="text-lg sm:text-2xl font-black text-amber-400">Poczekalnia przy stole (Lobby)</h2>
+          <p className="text-[11px] sm:text-sm text-slate-300">
+            Wpisz swój nick i wybierz krzesło przy stole (N, E, S lub W).
           </p>
+        </div>
+
+        {/* NICKNAME SELECTION BOX */}
+        <div className="bg-slate-950/90 border border-amber-500/40 rounded-xl p-2.5 sm:p-3 text-left space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <label className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+              <UserCheck className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Twój nick przy stole:</span>
+            </label>
+            {playerName !== 'Hey Ho Maro' && (
+              <button
+                type="button"
+                onClick={() => handleSaveName('Hey Ho Maro')}
+                className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition"
+              >
+                Ustaw: Hey Ho Maro
+              </button>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={nameInput}
+              autoFocus={isScannedUrl && isAutoName}
+              maxLength={24}
+              onChange={(e) => handleSaveName(e.target.value)}
+              placeholder="Wpisz swój nick (np. Marek, Ania...)"
+              className="flex-1 bg-slate-900 border border-slate-700 focus:border-amber-400 focus:ring-1 focus:ring-amber-400 rounded-lg px-3 py-2 text-sm font-bold text-white placeholder:text-slate-500 outline-none transition"
+            />
+          </div>
         </div>
 
         {/* CONNECTED PLAYERS REAL-TIME STATUS BOX */}

@@ -385,6 +385,9 @@ public class LocalAirplaneServer extends NanoWSD {
                     if (seatInfo != null && ws.playerId.equals(seatInfo.optString("id"))) {
                         ws.seat = s;
                         seatInfo.put("connected", true);
+                        if (ws.playerName != null && !ws.playerName.isEmpty()) {
+                            seatInfo.put("name", ws.playerName);
+                        }
                         break;
                     }
                 }

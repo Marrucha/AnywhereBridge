@@ -473,6 +473,7 @@ function handleMessage(ws, msg) {
       if (room.seats[s]?.id === msg.playerId) {
         seat = s;
         room.seats[s].connected = true;
+        if (msg.playerName) room.seats[s].name = msg.playerName;
         break;
       }
     }
