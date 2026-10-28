@@ -457,6 +457,10 @@ wss.on('connection', (ws) => {
 
 function handleMessage(ws, msg) {
   let info = clientSockets.get(ws);
+  if (msg.type === '__bot_bid') {
+    info = { roomId: msg.roomId, seat: msg.seat };
+    msg = { type: 'make_bid', bid: msg.bid };
+  }
 
   if (msg.type === 'join') {
     const roomId = msg.roomId || DEFAULT_ROOM_ID;
@@ -506,10 +510,36 @@ function handleMessage(ws, msg) {
   }
 
   if (msg.type === 'start_game') {
-    if (room.seats.N && room.seats.E && room.seats.S && room.seats.W) {
+    const seatedCount = SEAT_ORDER.filter(s => room.seats[s] !== null).length;
+    if (seatedCount >= 1) {
+      for (const s of SEAT_ORDER) {
+        if (!room.seats[s]) {
+          room.seats[s] = { id: `bot_${s}`, name: `Bot ${s}`, connected: true, isBot: true };
+        }
+      }
       room.startBoard();
       broadcastRoom(info.roomId);
+      scheduleBotTurn(info.roomId);
     }
+    return;
+  }
+
+  if (msg.type === 'chat') {
+    const chatMsg = {
+      id: `c_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      senderName: msg.senderName || info.playerName || 'Gracz',
+      senderSeat: msg.senderSeat || info.seat || 'S',
+      text: msg.text || '',
+      timestamp: Date.now(),
+    };
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        const cInfo = clientSockets.get(client);
+        if (cInfo && cInfo.roomId === info.roomId) {
+          client.send(JSON.stringify({ type: 'chat_message', message: chatMsg }));
+        }
+      }
+    });
     return;
   }
 
@@ -572,6 +602,14 @@ function handleMessage(ws, msg) {
             }
           }
 
+          // Human Declarer Priority: if declarer is a bot and dummy is a human, swap so human plays both hands
+          const decInfo = room.seats[declarer];
+          const dumSeat = partnerSeat(declarer);
+          const dumInfo = room.seats[dumSeat];
+          if (decInfo?.isBot && dumInfo && !dumInfo.isBot) {
+            declarer = dumSeat;
+          }
+
           room.contract = {
             level: lastMeaningful.level,
             suit: winningSuit,
@@ -587,6 +625,7 @@ function handleMessage(ws, msg) {
           room.openingLeadMade = false;
 
           broadcastRoom(info.roomId);
+          scheduleBotTurn(info.roomId);
           return;
         }
       }
@@ -595,11 +634,21 @@ function handleMessage(ws, msg) {
     // Next bidder
     room.currentBidder = nextSeat(room.currentBidder);
     broadcastRoom(info.roomId);
+    scheduleBotTurn(info.roomId);
     return;
   }
 
   if (msg.type === 'play_card') {
     if (room.phase !== 'PLAYING') return;
+
+    // If a 4-card trick is waiting to be collected, collect it first
+    if (room.currentTrick && room.currentTrick.cards.length === 4) {
+      collectRoomTrick(room);
+      if (room.phase !== 'PLAYING') {
+        broadcastRoom(info.roomId);
+        return;
+      }
+    }
 
     // Check if player is allowed to play:
     // It's their own turn, OR they are declarer playing dummy's card on dummy's turn!
@@ -635,43 +684,22 @@ function handleMessage(ws, msg) {
 
       // Broadcast trick completed with 4 cards visible
       broadcastRoom(info.roomId);
+      scheduleBotTurn(info.roomId);
       return;
     }
 
     // Advance to next player
     room.currentTurn = nextSeat(room.currentTurn);
     broadcastRoom(info.roomId);
+    scheduleBotTurn(info.roomId);
     return;
   }
 
   if (msg.type === 'collect_trick') {
     if (room.phase === 'PLAYING' && room.currentTrick && room.currentTrick.cards.length === 4) {
-      const winnerSeat = room.currentTrick.winnerSeat || determineWinner(room.currentTrick, room.contract.suit);
-      
-      // Check if all 13 tricks played
-      if (room.pastTricks.length === 13) {
-        const score = calculateScore(room.contract, room.tricksWonNS, room.tricksWonEW, room.vulnerability);
-        room.lastResult = {
-          id: `b_${Date.now()}`,
-          boardNumber: room.boardNumber,
-          dealer: room.dealer,
-          vulnerability: room.vulnerability,
-          contractStr: formatContract(room.contract),
-          declarer: room.contract.declarer,
-          tricksWonNS: room.tricksWonNS,
-          tricksWonEW: room.tricksWonEW,
-          scoreNS: score.scoreNS,
-          scoreEW: score.scoreEW,
-          resultDetail: score.resultDetail,
-          timestamp: Date.now(),
-        };
-        room.history.unshift(room.lastResult);
-        room.phase = 'BOARD_RESULT';
-      } else {
-        room.currentTurn = winnerSeat;
-        room.currentTrick = { leadSeat: winnerSeat, cards: [] };
-      }
+      collectRoomTrick(room);
       broadcastRoom(info.roomId);
+      scheduleBotTurn(info.roomId);
     }
     return;
   }
@@ -679,6 +707,7 @@ function handleMessage(ws, msg) {
   if (msg.type === 'next_board') {
     room.nextBoard();
     broadcastRoom(info.roomId);
+    scheduleBotTurn(info.roomId);
     return;
   }
 
@@ -692,6 +721,114 @@ function handleMessage(ws, msg) {
     room.history = [];
     broadcastRoom(info.roomId);
     return;
+  }
+}
+
+function collectRoomTrick(room) {
+  if (room.phase !== 'PLAYING' || !room.currentTrick || room.currentTrick.cards.length !== 4) return;
+  const winnerSeat = room.currentTrick.winnerSeat || determineWinner(room.currentTrick, room.contract.suit);
+  if (room.pastTricks.length === 13) {
+    const score = calculateScore(room.contract, room.tricksWonNS, room.tricksWonEW, room.vulnerability);
+    room.lastResult = {
+      id: `b_${Date.now()}`,
+      boardNumber: room.boardNumber,
+      dealer: room.dealer,
+      vulnerability: room.vulnerability,
+      contractStr: formatContract(room.contract),
+      declarer: room.contract.declarer,
+      tricksWonNS: room.tricksWonNS,
+      tricksWonEW: room.tricksWonEW,
+      scoreNS: score.scoreNS,
+      scoreEW: score.scoreEW,
+      resultDetail: score.resultDetail,
+      timestamp: Date.now(),
+    };
+    room.history.unshift(room.lastResult);
+    room.phase = 'BOARD_RESULT';
+  } else {
+    room.currentTurn = winnerSeat;
+    room.currentTrick = { leadSeat: winnerSeat, cards: [] };
+  }
+}
+
+function scheduleBotTurn(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  if (room.botTimeout) clearTimeout(room.botTimeout);
+
+  if (room.phase === 'PLAYING' && room.currentTrick && room.currentTrick.cards.length === 4) {
+    room.botTimeout = setTimeout(() => {
+      if (room.phase === 'PLAYING' && room.currentTrick && room.currentTrick.cards.length === 4) {
+        collectRoomTrick(room);
+        broadcastRoom(roomId);
+        scheduleBotTurn(roomId);
+      }
+    }, 1150);
+    return;
+  }
+
+  if (room.phase === 'BIDDING' && room.currentBidder) {
+    const seatInfo = room.seats[room.currentBidder];
+    if (seatInfo?.isBot) {
+      room.botTimeout = setTimeout(() => {
+        if (room.phase !== 'BIDDING' || !room.seats[room.currentBidder]?.isBot) return;
+        const bidder = room.currentBidder;
+        const hand = room.hands[bidder] || [];
+        let hcp = 0;
+        const counts = { S: 0, H: 0, D: 0, C: 0 };
+        for (const c of hand) {
+          counts[c.suit] = (counts[c.suit] || 0) + 1;
+          if (c.rank === 'A') hcp += 4;
+          else if (c.rank === 'K') hcp += 3;
+          else if (c.rank === 'Q') hcp += 2;
+          else if (c.rank === 'J') hcp += 1;
+        }
+        let bid = { type: 'PASS' };
+        const hasBid = room.bids.some(b => b.type === 'BID');
+        if (!hasBid && hcp >= 12) {
+          let bestSuit = 'C', bestCount = 0;
+          for (const st of ['S', 'H', 'D', 'C']) {
+            if (counts[st] > bestCount) { bestCount = counts[st]; bestSuit = st; }
+          }
+          if (hcp >= 15 && hcp <= 17 && bestCount <= 5) bid = { type: 'BID', level: 1, suit: 'NT' };
+          else bid = { type: 'BID', level: 1, suit: bestCount >= 5 ? bestSuit : 'C' };
+        }
+        handleMessage({ readyState: WebSocket.OPEN }, { type: '__bot_bid', roomId, seat: bidder, bid });
+      }, 650);
+    }
+    return;
+  }
+
+  if (room.phase === 'PLAYING' && room.currentTurn) {
+    const activeSeat = room.currentTurn;
+    const controllerSeat = activeSeat === room.dummySeat ? room.declarerSeat : activeSeat;
+    if (room.seats[controllerSeat]?.isBot) {
+      room.botTimeout = setTimeout(() => {
+        if (room.phase !== 'PLAYING' || room.currentTrick.cards.length >= 4) return;
+        const hand = room.hands[activeSeat] || [];
+        if (hand.length === 0) return;
+        const leadSuit = room.currentTrick.cards.length > 0 ? room.currentTrick.cards[0].card.suit : null;
+        const inSuit = leadSuit ? hand.filter(c => c.suit === leadSuit) : [];
+        const chosen = inSuit.length > 0 ? inSuit[inSuit.length - 1] : hand[hand.length - 1];
+        // Directly play card for bot
+        const idx = hand.findIndex(c => c.id === chosen.id);
+        if (idx === -1) return;
+        const playedCard = hand.splice(idx, 1)[0];
+        room.currentTrick.cards.push({ card: playedCard, playedBy: activeSeat });
+        if (!room.openingLeadMade) room.openingLeadMade = true;
+        if (room.currentTrick.cards.length === 4) {
+          const winnerSeat = determineWinner(room.currentTrick, room.contract.suit);
+          room.currentTrick.winnerSeat = winnerSeat;
+          room.pastTricks.push({ ...room.currentTrick });
+          if (winnerSeat === 'N' || winnerSeat === 'S') room.tricksWonNS += 1;
+          else room.tricksWonEW += 1;
+        } else {
+          room.currentTurn = nextSeat(room.currentTurn);
+        }
+        broadcastRoom(roomId);
+        scheduleBotTurn(roomId);
+      }, 650);
+    }
   }
 }
 

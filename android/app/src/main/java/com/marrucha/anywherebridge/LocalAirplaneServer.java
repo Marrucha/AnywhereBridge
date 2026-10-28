@@ -37,8 +37,11 @@ public class LocalAirplaneServer extends NanoWSD {
     private String vulnerability = "NONE";
     private String phase = "LOBBY"; // LOBBY, BIDDING, PLAYING, BOARD_RESULT
 
-    private final Map<String, JSONObject> seats = new HashMap<>(); // N, E, S, W -> { id, name, connected }
+    private final Map<String, JSONObject> seats = new HashMap<>(); // N, E, S, W -> { id, name, connected, isBot }
     private final Map<String, List<String>> hands = new HashMap<>(); // N, E, S, W -> List of card IDs
+    private final Map<String, List<String>> dealHands = new HashMap<>(); // N, E, S, W -> Original 13 card IDs
+    private final android.os.Handler mainHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private Runnable pendingBotRunnable = null;
 
     private final List<JSONObject> bids = new ArrayList<>();
     private String currentBidder = null;
@@ -98,6 +101,7 @@ public class LocalAirplaneServer extends NanoWSD {
         for (String s : SEATS) {
             seats.put(s, null);
             hands.put(s, new ArrayList<>());
+            dealHands.put(s, new ArrayList<>());
         }
     }
 
@@ -142,11 +146,20 @@ public class LocalAirplaneServer extends NanoWSD {
         hands.get("E").clear();
         hands.get("S").clear();
         hands.get("W").clear();
+        dealHands.get("N").clear();
+        dealHands.get("E").clear();
+        dealHands.get("S").clear();
+        dealHands.get("W").clear();
 
         hands.get("N").addAll(sortHand(deck.subList(0, 13)));
         hands.get("E").addAll(sortHand(deck.subList(13, 26)));
         hands.get("S").addAll(sortHand(deck.subList(26, 39)));
         hands.get("W").addAll(sortHand(deck.subList(39, 52)));
+
+        dealHands.get("N").addAll(hands.get("N"));
+        dealHands.get("E").addAll(hands.get("E"));
+        dealHands.get("S").addAll(hands.get("S"));
+        dealHands.get("W").addAll(hands.get("W"));
     }
 
     private List<String> sortHand(List<String> cards) {
@@ -381,15 +394,19 @@ public class LocalAirplaneServer extends NanoWSD {
 
             if ("take_seat".equals(type)) {
                 String targetSeat = msg.optString("seat");
-                if (Arrays.asList(SEATS).contains(targetSeat) && seats.get(targetSeat) == null) {
+                JSONObject existing = seats.get(targetSeat);
+                boolean canTake = existing == null || existing.optBoolean("isBot", false);
+                if (Arrays.asList(SEATS).contains(targetSeat) && canTake) {
                     if (ws.seat != null) seats.put(ws.seat, null);
                     JSONObject pObj = new JSONObject();
                     pObj.put("id", ws.playerId);
                     pObj.put("name", ws.playerName);
                     pObj.put("connected", true);
+                    pObj.put("isBot", false);
                     seats.put(targetSeat, pObj);
                     ws.seat = targetSeat;
                     broadcastState();
+                    scheduleBotActionIfNeeded();
                 }
                 return;
             }
@@ -404,180 +421,63 @@ public class LocalAirplaneServer extends NanoWSD {
             }
 
             if ("start_game".equals(type)) {
-                if (seats.get("N") != null && seats.get("E") != null && seats.get("S") != null && seats.get("W") != null) {
-                    setupBoard(boardNumber);
-                    phase = "BIDDING";
-                    broadcastState();
+                // Fill any empty seats with Bots so 1, 2, 3, or 4 human players can play together!
+                for (String s : SEATS) {
+                    if (seats.get(s) == null) {
+                        JSONObject botObj = new JSONObject();
+                        botObj.put("id", "bot_" + s);
+                        botObj.put("name", "🤖 Bot " + s);
+                        botObj.put("connected", true);
+                        botObj.put("isBot", true);
+                        seats.put(s, botObj);
+                    }
                 }
+                setupBoard(boardNumber);
+                phase = "BIDDING";
+                broadcastState();
+                scheduleBotActionIfNeeded();
                 return;
             }
 
             if ("make_bid".equals(type)) {
-                if (!"BIDDING".equals(phase) || !currentBidder.equals(ws.seat)) return;
-
+                if (!"BIDDING".equals(phase) || ws.seat == null || !ws.seat.equals(currentBidder)) return;
                 JSONObject bidData = msg.optJSONObject("bid");
                 if (bidData == null) return;
-                JSONObject bidObj = new JSONObject(bidData.toString());
-                bidObj.put("bidder", ws.seat);
-                bids.add(bidObj);
-
-                // Check 4 passes
-                if (bids.size() == 4) {
-                    boolean allPass = true;
-                    for (JSONObject b : bids) {
-                        if (!"PASS".equals(b.optString("type"))) { allPass = false; break; }
-                    }
-                    if (allPass) {
-                        lastResult = new JSONObject();
-                        lastResult.put("id", "b_" + System.currentTimeMillis());
-                        lastResult.put("boardNumber", boardNumber);
-                        lastResult.put("dealer", dealer);
-                        lastResult.put("vulnerability", vulnerability);
-                        lastResult.put("contractStr", "PAS");
-                        lastResult.put("declarer", dealer);
-                        lastResult.put("tricksWonNS", 0);
-                        lastResult.put("tricksWonEW", 0);
-                        lastResult.put("scoreNS", 0);
-                        lastResult.put("scoreEW", 0);
-                        lastResult.put("resultDetail", "4x PAS (Rozdanie pasowe, 0 pkt)");
-                        lastResult.put("timestamp", System.currentTimeMillis());
-                        history.add(0, lastResult);
-                        phase = "BOARD_RESULT";
-                        broadcastState();
-                        return;
-                    }
-                }
-
-                // Check 3 consecutive passes
-                if (bids.size() >= 4) {
-                    boolean last3Pass = true;
-                    for (int i = bids.size() - 3; i < bids.size(); i++) {
-                        if (!"PASS".equals(bids.get(i).optString("type"))) { last3Pass = false; break; }
-                    }
-
-                    if (last3Pass) {
-                        JSONObject lastMeaningful = null;
-                        for (int i = bids.size() - 4; i >= 0; i--) {
-                            if ("BID".equals(bids.get(i).optString("type"))) {
-                                lastMeaningful = bids.get(i);
-                                break;
-                            }
-                        }
-
-                        if (lastMeaningful != null) {
-                            String doubled = "NONE";
-                            for (int i = bids.size() - 4; i >= 0; i--) {
-                                String t = bids.get(i).optString("type");
-                                if ("REDOUBLE".equals(t)) { doubled = "REDOUBLED"; break; }
-                                if ("DOUBLE".equals(t)) { doubled = "DOUBLED"; break; }
-                                if ("BID".equals(t)) break;
-                            }
-
-                            String winningSide = getPartnership(lastMeaningful.optString("bidder"));
-                            String winningSuit = lastMeaningful.optString("suit");
-                            String declarer = lastMeaningful.optString("bidder");
-
-                            for (JSONObject b : bids) {
-                                if ("BID".equals(b.optString("type")) && winningSuit.equals(b.optString("suit"))
-                                        && getPartnership(b.optString("bidder")).equals(winningSide)) {
-                                    declarer = b.optString("bidder");
-                                    break;
-                                }
-                            }
-
-                            contract = new JSONObject();
-                            contract.put("level", lastMeaningful.optInt("level"));
-                            contract.put("suit", winningSuit);
-                            contract.put("doubled", doubled);
-                            contract.put("declarer", declarer);
-
-                            declarerSeat = declarer;
-                            dummySeat = partnerSeat(declarer);
-                            String openingLeader = nextSeat(declarer);
-                            currentTurn = openingLeader;
-                            currentTrick = new JSONObject();
-                            currentTrick.put("leadSeat", openingLeader);
-                            currentTrick.put("cards", new JSONArray());
-                            phase = "PLAYING";
-                            openingLeadMade = false;
-
-                            broadcastState();
-                            return;
-                        }
-                    }
-                }
-
-                currentBidder = nextSeat(currentBidder);
-                broadcastState();
+                processBidInternal(ws.seat, bidData);
                 return;
             }
 
             if ("play_card".equals(type)) {
-                if (!"PLAYING".equals(phase)) return;
+                if (!"PLAYING".equals(phase) || ws.seat == null) return;
+
+                // If 4 cards from previous trick are still on table, collect trick immediately first!
+                JSONArray existingCards = currentTrick.optJSONArray("cards");
+                if (existingCards != null && existingCards.length() == 4) {
+                    collectCompletedTrickInternal();
+                    if (!"PLAYING".equals(phase)) return;
+                }
 
                 boolean isMyTurn = ws.seat.equals(currentTurn);
-                boolean isDummyTurn = dummySeat.equals(currentTurn) && ws.seat.equals(declarerSeat);
+                boolean isDummyTurn = dummySeat != null && dummySeat.equals(currentTurn) && ws.seat.equals(declarerSeat);
                 if (!isMyTurn && !isDummyTurn) return;
 
                 String activeSeat = isDummyTurn ? dummySeat : ws.seat;
                 String cardId = msg.optString("cardId");
-                List<String> activeHand = hands.get(activeSeat);
+                processPlayCardInternal(activeSeat, cardId);
+                return;
+            }
 
-                if (!activeHand.contains(cardId)) return;
-                activeHand.remove(cardId);
-
-                JSONObject playedCard = new JSONObject();
-                JSONObject cObj = new JSONObject();
-                cObj.put("id", cardId);
-                cObj.put("suit", String.valueOf(cardId.charAt(1)));
-                cObj.put("rank", String.valueOf(cardId.charAt(0)));
-                playedCard.put("card", cObj);
-                playedCard.put("playedBy", activeSeat);
-
-                JSONArray cardsArr = currentTrick.getJSONArray("cards");
-                cardsArr.put(playedCard);
-
-                if (!openingLeadMade) openingLeadMade = true;
-
-                // 4 cards in trick
-                if (cardsArr.length() == 4) {
-                    String winner = determineWinner(currentTrick, contract.optString("suit"));
-                    currentTrick.put("winnerSeat", winner);
-                    pastTricks.add(new JSONObject(currentTrick.toString()));
-
-                    if ("N".equals(winner) || "S".equals(winner)) tricksWonNS++;
-                    else tricksWonEW++;
-
-                    broadcastState();
-
-                    // Delay before clearing trick
-                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                        if (pastTricks.size() == 13) {
-                            lastResult = calculateScore(contract, tricksWonNS, tricksWonEW, vulnerability);
-                            history.add(0, lastResult);
-                            phase = "BOARD_RESULT";
-                        } else {
-                            currentTurn = winner;
-                            currentTrick = new JSONObject();
-                            try {
-                                currentTrick.put("leadSeat", winner);
-                                currentTrick.put("cards", new JSONArray());
-                            } catch (Exception ignored) {}
-                        }
-                        broadcastState();
-                    }, 1200);
-                    return;
-                }
-
-                currentTurn = nextSeat(currentTurn);
-                broadcastState();
+            if ("collect_trick".equals(type)) {
+                collectCompletedTrickInternal();
                 return;
             }
 
             if ("next_board".equals(type)) {
-                setupBoard(boardNumber + 1);
+                int nextNum = (boardNumber % 8) + 1;
+                setupBoard(nextNum);
                 phase = "BIDDING";
                 broadcastState();
+                scheduleBotActionIfNeeded();
                 return;
             }
 
@@ -589,6 +489,7 @@ public class LocalAirplaneServer extends NanoWSD {
             if ("clear_history".equals(type)) {
                 history.clear();
                 broadcastState();
+                return;
             }
 
             if ("chat".equals(type)) {
@@ -616,6 +517,351 @@ public class LocalAirplaneServer extends NanoWSD {
             }
         } catch (Exception e) {
             Log.e(TAG, "Error processing client message", e);
+        }
+    }
+
+    private boolean isSeatBot(String seat) {
+        if (seat == null) return false;
+        JSONObject sObj = seats.get(seat);
+        return sObj != null && sObj.optBoolean("isBot", false);
+    }
+
+    private synchronized void processBidInternal(String bidderSeat, JSONObject bidData) {
+        try {
+            if (!"BIDDING".equals(phase) || !bidderSeat.equals(currentBidder)) return;
+            JSONObject bidObj = new JSONObject(bidData.toString());
+            bidObj.put("bidder", bidderSeat);
+            bids.add(bidObj);
+
+            // Check 4 passes
+            if (bids.size() == 4) {
+                boolean allPass = true;
+                for (JSONObject b : bids) {
+                    if (!"PASS".equals(b.optString("type"))) { allPass = false; break; }
+                }
+                if (allPass) {
+                    lastResult = new JSONObject();
+                    lastResult.put("id", "b_" + System.currentTimeMillis());
+                    lastResult.put("boardNumber", boardNumber);
+                    lastResult.put("dealer", dealer);
+                    lastResult.put("vulnerability", vulnerability);
+                    lastResult.put("contractStr", "PAS");
+                    lastResult.put("declarer", dealer);
+                    lastResult.put("tricksWonNS", 0);
+                    lastResult.put("tricksWonEW", 0);
+                    lastResult.put("scoreNS", 0);
+                    lastResult.put("scoreEW", 0);
+                    lastResult.put("resultDetail", "4x PAS (Rozdanie pasowe, 0 pkt)");
+                    lastResult.put("timestamp", System.currentTimeMillis());
+                    history.add(0, lastResult);
+                    phase = "BOARD_RESULT";
+                    broadcastState();
+                    return;
+                }
+            }
+
+            // Check 3 consecutive passes
+            if (bids.size() >= 4) {
+                boolean last3Pass = true;
+                for (int i = bids.size() - 3; i < bids.size(); i++) {
+                    if (!"PASS".equals(bids.get(i).optString("type"))) { last3Pass = false; break; }
+                }
+
+                if (last3Pass) {
+                    JSONObject lastMeaningful = null;
+                    for (int i = bids.size() - 4; i >= 0; i--) {
+                        if ("BID".equals(bids.get(i).optString("type"))) {
+                            lastMeaningful = bids.get(i);
+                            break;
+                        }
+                    }
+
+                    if (lastMeaningful != null) {
+                        String doubled = "NONE";
+                        for (int i = bids.size() - 4; i >= 0; i--) {
+                            String t = bids.get(i).optString("type");
+                            if ("REDOUBLE".equals(t)) { doubled = "REDOUBLED"; break; }
+                            if ("DOUBLE".equals(t)) { doubled = "DOUBLED"; break; }
+                            if ("BID".equals(t)) break;
+                        }
+
+                        String winningSide = getPartnership(lastMeaningful.optString("bidder"));
+                        String winningSuit = lastMeaningful.optString("suit");
+                        String declarer = lastMeaningful.optString("bidder");
+
+                        for (JSONObject b : bids) {
+                            if ("BID".equals(b.optString("type")) && winningSuit.equals(b.optString("suit"))
+                                    && getPartnership(b.optString("bidder")).equals(winningSide)) {
+                                declarer = b.optString("bidder");
+                                break;
+                            }
+                        }
+
+                        // If declarer is a Bot and their partner is a Human, make the Human declarer
+                        // so the human controls both hands and never sits idle!
+                        String partnerOfDecl = partnerSeat(declarer);
+                        if (isSeatBot(declarer) && !isSeatBot(partnerOfDecl)) {
+                            declarer = partnerOfDecl;
+                        }
+
+                        contract = new JSONObject();
+                        contract.put("level", lastMeaningful.optInt("level"));
+                        contract.put("suit", winningSuit);
+                        contract.put("doubled", doubled);
+                        contract.put("declarer", declarer);
+
+                        declarerSeat = declarer;
+                        dummySeat = partnerSeat(declarer);
+                        String openingLeader = nextSeat(declarer);
+                        currentTurn = openingLeader;
+                        currentTrick = new JSONObject();
+                        currentTrick.put("leadSeat", openingLeader);
+                        currentTrick.put("cards", new JSONArray());
+                        phase = "PLAYING";
+                        openingLeadMade = false;
+
+                        broadcastState();
+                        scheduleBotActionIfNeeded();
+                        return;
+                    }
+                }
+            }
+
+            currentBidder = nextSeat(currentBidder);
+            broadcastState();
+            scheduleBotActionIfNeeded();
+        } catch (Exception e) {
+            Log.e(TAG, "Error in processBidInternal", e);
+        }
+    }
+
+    private synchronized void processPlayCardInternal(String activeSeat, String cardId) {
+        try {
+            if (!"PLAYING".equals(phase) || !activeSeat.equals(currentTurn)) return;
+            List<String> activeHand = hands.get(activeSeat);
+            if (activeHand == null || !activeHand.contains(cardId)) return;
+
+            JSONArray cardsArr = currentTrick.getJSONArray("cards");
+            if (cardsArr.length() >= 4) return;
+
+            // Validate following suit
+            if (cardsArr.length() > 0) {
+                String leadSuit = cardsArr.getJSONObject(0).getJSONObject("card").getString("suit");
+                String playedSuit = String.valueOf(cardId.charAt(1));
+                if (!leadSuit.equals(playedSuit)) {
+                    for (String c : activeHand) {
+                        if (String.valueOf(c.charAt(1)).equals(leadSuit)) {
+                            return; // Must follow suit!
+                        }
+                    }
+                }
+            }
+
+            activeHand.remove(cardId);
+
+            JSONObject playedCard = new JSONObject();
+            JSONObject cObj = new JSONObject();
+            cObj.put("id", cardId);
+            cObj.put("suit", String.valueOf(cardId.charAt(1)));
+            cObj.put("rank", String.valueOf(cardId.charAt(0)));
+            playedCard.put("card", cObj);
+            playedCard.put("playedBy", activeSeat);
+
+            cardsArr.put(playedCard);
+            if (!openingLeadMade) openingLeadMade = true;
+
+            if (cardsArr.length() == 4) {
+                String winner = determineWinner(currentTrick, contract.optString("suit"));
+                currentTrick.put("winnerSeat", winner);
+                currentTurn = null;
+                broadcastState();
+                scheduleBotActionIfNeeded();
+                return;
+            }
+
+            currentTurn = nextSeat(currentTurn);
+            broadcastState();
+            scheduleBotActionIfNeeded();
+        } catch (Exception e) {
+            Log.e(TAG, "Error in processPlayCardInternal", e);
+        }
+    }
+
+    private synchronized void collectCompletedTrickInternal() {
+        try {
+            if (!"PLAYING".equals(phase) || currentTrick == null) return;
+            JSONArray cardsArr = currentTrick.optJSONArray("cards");
+            if (cardsArr == null || cardsArr.length() != 4) return;
+
+            if (pendingBotRunnable != null) {
+                mainHandler.removeCallbacks(pendingBotRunnable);
+                pendingBotRunnable = null;
+            }
+
+            String winner = currentTrick.optString("winnerSeat");
+            if (winner == null || winner.isEmpty()) {
+                winner = determineWinner(currentTrick, contract.optString("suit"));
+                currentTrick.put("winnerSeat", winner);
+            }
+
+            pastTricks.add(new JSONObject(currentTrick.toString()));
+            if ("N".equals(winner) || "S".equals(winner)) tricksWonNS++;
+            else tricksWonEW++;
+
+            if (pastTricks.size() == 13) {
+                lastResult = calculateScore(contract, tricksWonNS, tricksWonEW, vulnerability);
+                history.add(0, lastResult);
+                phase = "BOARD_RESULT";
+                currentTurn = null;
+                broadcastState();
+            } else {
+                currentTurn = winner;
+                currentTrick = new JSONObject();
+                currentTrick.put("leadSeat", winner);
+                currentTrick.put("cards", new JSONArray());
+                broadcastState();
+                scheduleBotActionIfNeeded();
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "Error in collectCompletedTrickInternal", e);
+        }
+    }
+
+    private synchronized void scheduleBotActionIfNeeded() {
+        if (pendingBotRunnable != null) {
+            mainHandler.removeCallbacks(pendingBotRunnable);
+            pendingBotRunnable = null;
+        }
+
+        if ("BIDDING".equals(phase) && currentBidder != null && isSeatBot(currentBidder)) {
+            final String botSeat = currentBidder;
+            pendingBotRunnable = () -> {
+                synchronized (LocalAirplaneServer.this) {
+                    if ("BIDDING".equals(phase) && botSeat.equals(currentBidder) && isSeatBot(botSeat)) {
+                        JSONObject bid = chooseBotBid(botSeat);
+                        processBidInternal(botSeat, bid);
+                    }
+                }
+            };
+            mainHandler.postDelayed(pendingBotRunnable, 650);
+            return;
+        }
+
+        if ("PLAYING".equals(phase)) {
+            JSONArray cardsArr = currentTrick != null ? currentTrick.optJSONArray("cards") : null;
+            if (cardsArr != null && cardsArr.length() == 4) {
+                pendingBotRunnable = () -> {
+                    synchronized (LocalAirplaneServer.this) {
+                        collectCompletedTrickInternal();
+                    }
+                };
+                mainHandler.postDelayed(pendingBotRunnable, 1300);
+                return;
+            }
+
+            if (cardsArr != null && cardsArr.length() < 4 && currentTurn != null) {
+                String controllerSeat = currentTurn.equals(dummySeat) ? declarerSeat : currentTurn;
+                if (isSeatBot(controllerSeat)) {
+                    final String turnSeat = currentTurn;
+                    pendingBotRunnable = () -> {
+                        synchronized (LocalAirplaneServer.this) {
+                            if ("PLAYING".equals(phase) && turnSeat.equals(currentTurn)) {
+                                String cardId = chooseBotCard(turnSeat);
+                                if (cardId != null) {
+                                    processPlayCardInternal(turnSeat, cardId);
+                                }
+                            }
+                        }
+                    };
+                    mainHandler.postDelayed(pendingBotRunnable, 650);
+                }
+            }
+        }
+    }
+
+    private JSONObject chooseBotBid(String seat) {
+        JSONObject passBid = new JSONObject();
+        try {
+            passBid.put("type", "PASS");
+            List<String> hand = hands.get(seat);
+            if (hand == null || hand.isEmpty()) return passBid;
+
+            int hcp = 0;
+            Map<String, Integer> counts = new HashMap<>();
+            for (String s : SUITS) counts.put(s, 0);
+            for (String cId : hand) {
+                String r = String.valueOf(cId.charAt(0));
+                String s = String.valueOf(cId.charAt(1));
+                if ("A".equals(r)) hcp += 4;
+                else if ("K".equals(r)) hcp += 3;
+                else if ("Q".equals(r)) hcp += 2;
+                else if ("J".equals(r)) hcp += 1;
+                counts.put(s, counts.get(s) + 1);
+            }
+
+            String longestSuit = "S";
+            int maxLen = 0;
+            for (String s : SUITS) {
+                if (counts.get(s) > maxLen) {
+                    maxLen = counts.get(s);
+                    longestSuit = s;
+                }
+            }
+
+            int myBidCount = 0;
+            for (JSONObject b : bids) {
+                if (seat.equals(b.optString("bidder")) && "BID".equals(b.optString("type"))) {
+                    myBidCount++;
+                }
+            }
+            if (myBidCount >= 2 || hcp < 10) return passBid;
+
+            // Find highest bid so far
+            int highestLevel = 0;
+            int highestSuitRank = -1;
+            List<String> suitOrder = Arrays.asList("C", "D", "H", "S", "NT");
+            for (JSONObject b : bids) {
+                if ("BID".equals(b.optString("type"))) {
+                    highestLevel = b.optInt("level");
+                    highestSuitRank = suitOrder.indexOf(b.optString("suit"));
+                }
+            }
+
+            String candSuit = maxLen >= 5 ? longestSuit : "NT";
+            int candSuitRank = suitOrder.indexOf(candSuit);
+            int targetLevel = highestLevel == 0 ? 1 : (candSuitRank > highestSuitRank ? highestLevel : highestLevel + 1);
+
+            int maxAllowedLevel = hcp >= 16 ? 3 : hcp >= 13 ? 2 : 1;
+            if (targetLevel <= maxAllowedLevel && targetLevel <= 7) {
+                JSONObject bid = new JSONObject();
+                bid.put("type", "BID");
+                bid.put("level", targetLevel);
+                bid.put("suit", candSuit);
+                return bid;
+            }
+        } catch (Exception ignored) {}
+        return passBid;
+    }
+
+    private String chooseBotCard(String activeSeat) {
+        List<String> hand = hands.get(activeSeat);
+        if (hand == null || hand.isEmpty()) return null;
+        try {
+            JSONArray cardsArr = currentTrick.getJSONArray("cards");
+            if (cardsArr.length() == 0) {
+                return hand.get(0);
+            }
+            String leadSuit = cardsArr.getJSONObject(0).getJSONObject("card").getString("suit");
+            List<String> legal = new ArrayList<>();
+            for (String c : hand) {
+                if (String.valueOf(c.charAt(1)).equals(leadSuit)) {
+                    legal.add(c);
+                }
+            }
+            if (legal.isEmpty()) legal = new ArrayList<>(hand);
+            return legal.get(legal.size() - 1);
+        } catch (Exception e) {
+            return hand.get(0);
         }
     }
 
@@ -843,6 +1089,26 @@ public class LocalAirplaneServer extends NanoWSD {
                 s.put("tricksWonEW", tricksWonEW);
                 s.put("currentTurn", currentTurn != null ? currentTurn : JSONObject.NULL);
                 s.put("lastResult", lastResult != null ? lastResult : JSONObject.NULL);
+
+                if ("BOARD_RESULT".equals(phase)) {
+                    JSONObject dealHandsObj = new JSONObject();
+                    for (String k : SEATS) {
+                        JSONArray hArr = new JSONArray();
+                        if (dealHands.get(k) != null) {
+                            for (String cId : dealHands.get(k)) {
+                                JSONObject cObj = new JSONObject();
+                                cObj.put("id", cId);
+                                cObj.put("suit", String.valueOf(cId.charAt(1)));
+                                cObj.put("rank", String.valueOf(cId.charAt(0)));
+                                hArr.put(cObj);
+                            }
+                        }
+                        dealHandsObj.put(k, hArr);
+                    }
+                    s.put("dealHands", dealHandsObj);
+                } else {
+                    s.put("dealHands", JSONObject.NULL);
+                }
 
                 JSONArray histArr = new JSONArray();
                 for (JSONObject h : history) histArr.put(h);

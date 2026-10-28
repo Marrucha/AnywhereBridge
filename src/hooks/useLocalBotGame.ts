@@ -81,16 +81,25 @@ export function useLocalBotGame(
 
   const playBotGameCard = (cardId: string) => {
     if (!localSession) return;
-    const { state } = localSession;
-    if (state.phase !== 'PLAYING') return;
+    let current = localSession;
+    if (current.state.phase !== 'PLAYING') return;
 
-    // Determine who is playing: human or human-controlled dummy
-    let playSeat = activeSeat;
-    if (state.declarerSeat === activeSeat && state.currentTurn === state.dummySeat) {
-      playSeat = state.dummySeat;
+    // If 4 cards are still on the table, resolve the completed trick first so the user's card click can proceed immediately
+    if (current.state.currentTrick.cards.length === 4) {
+      current = resolveCompletedTrick(current);
+      if (current.state.phase !== 'PLAYING') {
+        setLocalSession(current);
+        return;
+      }
     }
 
-    const nextSession = applyLocalPlayCard(localSession, cardId, playSeat);
+    const humanSeat = current.mySeat || activeSeat;
+    let playSeat = humanSeat;
+    if (current.state.declarerSeat === humanSeat && current.state.currentTurn === current.state.dummySeat) {
+      playSeat = current.state.dummySeat!;
+    }
+
+    const nextSession = applyLocalPlayCard(current, cardId, playSeat);
     setLocalSession(nextSession);
   };
 
@@ -106,30 +115,39 @@ export function useLocalBotGame(
   };
 
   const nextBotGameBoard = (targetBoardNumber?: number) => {
+    const humanSeat = localSession?.mySeat || activeSeat;
     const nextNum = targetBoardNumber !== undefined
       ? targetBoardNumber
       : localSession
       ? localSession.state.boardNumber + 1
       : 1;
-    startBotGame(activeSeat, nextNum);
+    startBotGame(humanSeat, nextNum);
   };
 
-  // Bot automation loop: waits until user clicks on screen to collect 4-card tricks
+  // Bot automation loop & automatic trick collection after brief pause
   useEffect(() => {
     if (!localSession || !localSession.isBotGame) return;
     const { state } = localSession;
+    const humanSeat = localSession.mySeat || activeSeat;
 
     if (state.phase === 'BOARD_RESULT') return;
 
-    // If trick has all 4 cards, DO NOT auto-collect. Cards remain on table until user clicks screen!
+    // If trick has all 4 cards, auto-collect after 1.3s (or user can tap early)
     if (state.phase === 'PLAYING' && state.currentTrick.cards.length === 4) {
-      return;
+      botTimerRef.current = setTimeout(() => {
+        setLocalSession(prev => {
+          if (!prev || prev.state.currentTrick.cards.length !== 4) return prev;
+          return resolveCompletedTrick(prev);
+        });
+      }, 1300);
+      return () => {
+        if (botTimerRef.current) clearTimeout(botTimerRef.current);
+      };
     }
 
-    // If in PLAYING phase and currentTurn is null (e.g. during trick resolution pause), wait
     if (state.phase === 'PLAYING' && state.currentTurn === null) return;
 
-    const botAction = getBotNextAction(localSession, activeSeat);
+    const botAction = getBotNextAction(localSession, humanSeat);
     if (!botAction) return;
 
     // Small realistic delay for bot moves (700ms)

@@ -3,7 +3,7 @@ import { createDeck, dealDeck } from './deck';
 import { checkBiddingStatus, isValidBid } from './bidding';
 import { determineTrickWinner, isCardLegal } from './play';
 import { calculateDuplicateScore, formatContractString } from './scoring';
-import { getBoardSetup, nextSeat } from './vulnerability';
+import { getBoardSetup, nextSeat, partnerSeat } from './vulnerability';
 import { chooseBotCard, getBotBid } from './bot';
 import { calculateDealHcp, calculateBoardImp } from './impScoring';
 
@@ -12,6 +12,7 @@ export interface LocalGameSession {
   fullHands: Record<Seat, Card[]>;
   dealHands: Record<Seat, Card[]>;
   dealHcp: { hcpNS: number; hcpEW: number };
+  mySeat: Seat;
   isBotGame: boolean;
 }
 
@@ -81,6 +82,7 @@ export function createLocalBotGame(
     fullHands: hands,
     dealHands: hands,
     dealHcp,
+    mySeat,
     isBotGame: true,
   };
 }
@@ -143,11 +145,23 @@ export function applyLocalBid(
       };
     } else {
       nextPhase = 'PLAYING';
-      nextContract = biddingStatus.contract;
       nextDeclarer = biddingStatus.declarer;
       nextDummy = biddingStatus.dummy;
-      nextCurrentTurn = biddingStatus.openingLeader;
-      nextLeadSeat = biddingStatus.openingLeader || 'N';
+      nextContract = biddingStatus.contract;
+
+      // If human's partnership won the contract, ensure the human is Declarer
+      // so the human always plays both hands and Dummy is at the top of the screen!
+      const humanSeat = session.mySeat || 'S';
+      if (nextDummy === humanSeat) {
+        nextDeclarer = humanSeat;
+        nextDummy = partnerSeat(humanSeat);
+        if (nextContract) {
+          nextContract = { ...nextContract, declarer: nextDeclarer };
+        }
+      }
+
+      nextCurrentTurn = nextDeclarer ? nextSeat(nextDeclarer) : biddingStatus.openingLeader;
+      nextLeadSeat = nextCurrentTurn || 'N';
       nextCurrentBidder = null;
     }
   } else {
@@ -184,6 +198,7 @@ export function applyLocalPlayCard(
   playedBySeat: Seat
 ): LocalGameSession {
   const { state, fullHands } = session;
+  const humanSeat = session.mySeat || 'S';
   if (state.phase !== 'PLAYING' || state.currentTurn !== playedBySeat) {
     return session;
   }
@@ -229,11 +244,11 @@ export function applyLocalPlayCard(
     const winner = determineTrickWinner(newTrick, state.contract!.suit);
     const completedTrick = { ...newTrick, winnerSeat: winner };
 
-    // Keep all 4 cards visible on table! The trick will be cleared after a 1.2s delay
+    // Keep all 4 cards visible on table! The trick will be cleared after a brief delay or tap
     const nextState: RoomState = {
       ...state,
       hands: nextFullHands,
-      myHand: nextFullHands['S'] || [],
+      myHand: nextFullHands[humanSeat] || [],
       dummyHand,
       currentTrick: completedTrick,
       currentTurn: null,
@@ -252,7 +267,7 @@ export function applyLocalPlayCard(
   const nextState: RoomState = {
     ...state,
     hands: nextFullHands,
-    myHand: nextFullHands['S'] || [],
+    myHand: nextFullHands[humanSeat] || [],
     dummyHand,
     currentTrick: newTrick,
     currentTurn: nextTurn,
@@ -274,37 +289,14 @@ export function getBotNextAction(
   mySeat: Seat
 ): { type: 'bid' | 'play'; seat: Seat; cardId?: string; bid?: any } | null {
   const { state, fullHands } = session;
+  const humanSeat = session.mySeat || mySeat || 'S';
 
   if (state.phase === 'BIDDING') {
     const bidder = state.currentBidder;
-    if (bidder && bidder !== mySeat) {
-      if (bidder === 'W') {
-        const hasWBid = state.bids.some(b => b.bidder === 'W' && b.type === 'BID');
-        if (!hasWBid) {
-          // Bot W licytuje i zostaje rozgrywającym (dobiera swój najlepszy kolor lub 3BA)
-          const wHand = fullHands['W'] || [];
-          const spadeCount = wHand.filter(c => c.suit === 'S').length;
-          const heartCount = wHand.filter(c => c.suit === 'H').length;
-
-          let level = 3;
-          let suit: TrumpSuit = 'NT';
-
-          if (spadeCount >= 4) {
-            suit = 'S';
-            level = 4;
-          } else if (heartCount >= 4) {
-            suit = 'H';
-            level = 4;
-          } else {
-            suit = 'NT';
-            level = 3;
-          }
-
-          return { type: 'bid', seat: 'W', bid: { type: 'BID', level, suit } };
-        }
-      }
-      // Pozostałe boty (N, E) oraz W po zalicytowaniu pasują
-      return { type: 'bid', seat: bidder, bid: { type: 'PASS' } };
+    if (bidder && bidder !== humanSeat) {
+      const botHand = fullHands[bidder] || [];
+      const bid = getBotBid(botHand, bidder, state.bids);
+      return { type: 'bid', seat: bidder, bid };
     }
     return null;
   }
@@ -344,6 +336,7 @@ export function getBotNextAction(
  */
 export function resolveCompletedTrick(session: LocalGameSession): LocalGameSession {
   const { state, fullHands } = session;
+  const humanSeat = session.mySeat || 'S';
   if (state.phase !== 'PLAYING' || state.currentTrick.cards.length !== 4) {
     return session;
   }
@@ -392,9 +385,9 @@ export function resolveCompletedTrick(session: LocalGameSession): LocalGameSessi
     const finalState: RoomState = {
       ...state,
       phase: 'BOARD_RESULT',
-      dealHands: session.dealHands || hands,
-      hands: session.dealHands || hands,
-      myHand: (session.dealHands && session.dealHands['S']) || fullHands['S'] || [],
+      dealHands: session.dealHands || fullHands,
+      hands: session.dealHands || fullHands,
+      myHand: (session.dealHands && session.dealHands[humanSeat]) || fullHands[humanSeat] || [],
       dummyHand: state.dummySeat ? ((session.dealHands && session.dealHands[state.dummySeat]) || dummyHand) : null,
       currentTrick: completedTrick, // 13th trick stays on table
       pastTricks: nextPastTricks,
@@ -416,7 +409,7 @@ export function resolveCompletedTrick(session: LocalGameSession): LocalGameSessi
     const nextState: RoomState = {
       ...state,
       hands: fullHands,
-      myHand: fullHands['S'] || [],
+      myHand: fullHands[humanSeat] || [],
       dummyHand,
       currentTrick: { leadSeat: winner, cards: [] },
       pastTricks: nextPastTricks,

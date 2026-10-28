@@ -2,7 +2,12 @@ package com.marrucha.anywherebridge;
 
 import android.os.Bundle;
 import android.util.Log;
+import android.view.View;
 import android.view.WindowManager;
+
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.getcapacitor.BridgeActivity;
 
@@ -21,6 +26,18 @@ public class MainActivity extends BridgeActivity {
         startAirplaneServer();
 
         super.onCreate(savedInstanceState);
+
+        // Prevent Android Edge-to-Edge status bar / cutout / gesture bar from overlapping WebView
+        View contentView = findViewById(android.R.id.content);
+        if (contentView != null) {
+            ViewCompat.setOnApplyWindowInsetsListener(contentView, (v, windowInsets) -> {
+                Insets insets = windowInsets.getInsets(
+                        WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout()
+                );
+                v.setPadding(insets.left, insets.top, insets.right, insets.bottom);
+                return WindowInsetsCompat.CONSUMED;
+            });
+        }
     }
 
     private synchronized void startAirplaneServer() {

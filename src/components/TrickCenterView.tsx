@@ -11,6 +11,10 @@ interface TrickCenterViewProps {
   declarerSeat: Seat | null;
   currentTrick: Trick;
   seatNames: Record<Seat, string>;
+  topSeat?: Seat;
+  bottomSeat?: Seat;
+  leftSeat?: Seat;
+  rightSeat?: Seat;
   onCollectTrick?: () => void;
   onOpenResultModal: () => void;
   onNextBoard?: () => void;
@@ -25,6 +29,10 @@ export const TrickCenterView: React.FC<TrickCenterViewProps> = ({
   declarerSeat,
   currentTrick,
   seatNames,
+  topSeat = 'N',
+  bottomSeat = 'S',
+  leftSeat = 'W',
+  rightSeat = 'E',
   onCollectTrick,
   onOpenResultModal,
   onNextBoard,
@@ -92,29 +100,29 @@ export const TrickCenterView: React.FC<TrickCenterViewProps> = ({
 
   if (phase === 'PLAYING') {
     return (
-      <div className="relative w-40 h-40 sm:w-52 sm:h-52 flex items-center justify-center">
-        {/* North Card */}
-        {getPlayedCardForSeat('N') && (
+      <div className="relative w-44 h-44 sm:w-56 sm:h-56 flex items-center justify-center">
+        {/* Top (Partner) Card */}
+        {getPlayedCardForSeat(topSeat) && (
           <div className="absolute top-0 animate-scaleUp z-10">
-            <CardView card={getPlayedCardForSeat('N')!.card} size="md" isPlayable={false} />
+            <CardView card={getPlayedCardForSeat(topSeat)!.card} size="md" isPlayable={false} />
           </div>
         )}
-        {/* South Card */}
-        {getPlayedCardForSeat('S') && (
+        {/* Bottom (My) Card */}
+        {getPlayedCardForSeat(bottomSeat) && (
           <div className="absolute bottom-0 animate-scaleUp z-10">
-            <CardView card={getPlayedCardForSeat('S')!.card} size="md" isPlayable={false} />
+            <CardView card={getPlayedCardForSeat(bottomSeat)!.card} size="md" isPlayable={false} />
           </div>
         )}
-        {/* West Card */}
-        {getPlayedCardForSeat('W') && (
+        {/* Left Card */}
+        {getPlayedCardForSeat(leftSeat) && (
           <div className="absolute left-0 animate-scaleUp z-10">
-            <CardView card={getPlayedCardForSeat('W')!.card} size="md" isPlayable={false} />
+            <CardView card={getPlayedCardForSeat(leftSeat)!.card} size="md" isPlayable={false} />
           </div>
         )}
-        {/* East Card */}
-        {getPlayedCardForSeat('E') && (
+        {/* Right Card */}
+        {getPlayedCardForSeat(rightSeat) && (
           <div className="absolute right-0 animate-scaleUp z-10">
-            <CardView card={getPlayedCardForSeat('E')!.card} size="md" isPlayable={false} />
+            <CardView card={getPlayedCardForSeat(rightSeat)!.card} size="md" isPlayable={false} />
           </div>
         )}
 

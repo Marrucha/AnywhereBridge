@@ -12,7 +12,7 @@ import { TrickCenterView } from './TrickCenterView';
 import { DdsTableResult } from '../logic/dds';
 import { isCardLegal } from '../logic/play';
 import { formatContractString } from '../logic/scoring';
-import { formatVulnerabilityPl, isSideVulnerable } from '../logic/vulnerability';
+import { formatVulnerabilityPl, isSideVulnerable, nextSeat, partnerSeat } from '../logic/vulnerability';
 import { Users, AlertCircle, Play, RotateCcw, QrCode, Bot } from 'lucide-react';
 
 interface BridgeTableProps {
@@ -87,6 +87,14 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
     connectedPlayers = [],
   } = state;
 
+  // Relative seats from the perspective of the current player (bottom = me, top = partner, left = LHO, right = RHO)
+  const bottomSeat: Seat = mySeat || 'S';
+  const leftSeat: Seat = nextSeat(bottomSeat);
+  const topSeat: Seat = partnerSeat(bottomSeat);
+  const rightSeat: Seat = nextSeat(topSeat);
+
+  const isSeatVul = (s: Seat) => isSideVulnerable(s === 'N' || s === 'S' ? 'NS' : 'EW', vulnerability);
+
   const isMyTurn = mySeat !== null && currentTurn === mySeat;
   const isDummyTurn = dummySeat !== null && currentTurn === dummySeat;
   // In bridge, declarer plays the dummy's cards on dummy's turn!
@@ -103,8 +111,6 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   const allSeatsOccupied = seatedCount === 4;
   const totalPlayersInRoom = connectedCount !== undefined ? connectedCount : Math.max(connectedPlayers.length, seatedCount);
   const unseatedList = connectedPlayers.filter(p => !p.seat);
-  const isNSVul = isSideVulnerable('NS', vulnerability);
-  const isEWVul = isSideVulnerable('EW', vulnerability);
 
   const [showResultModal, setShowResultModal] = React.useState(false);
 
@@ -113,6 +119,11 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
       setShowResultModal(false);
     }
   }, [phase]);
+
+  const bottomHandToDisplay =
+    phase === 'BOARD_RESULT'
+      ? (state.dealHands?.[bottomSeat] || myHand)
+      : (myHand && myHand.length > 0 ? myHand : (dummySeat === bottomSeat && dummyHand ? dummyHand : []));
 
   return (
     <div
@@ -123,7 +134,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           onCollectTrick();
         }
       }}
-      className="relative w-full h-full flex flex-col justify-between p-1.5 sm:p-3 select-none overflow-hidden cursor-default"
+      className="relative w-full h-full flex flex-col justify-between p-1 sm:p-2.5 select-none overflow-hidden cursor-default"
     >
       {/* LOBBY OVERLAY / PHASE */}
       {phase === 'LOBBY' && (
@@ -167,7 +178,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             e.stopPropagation();
             setShowResultModal(true);
           }}
-          className="bg-emerald-600/90 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-center cursor-pointer transition shadow-lg border border-emerald-400/50 mb-1 flex items-center justify-between text-xs sm:text-sm animate-pulse"
+          className="bg-emerald-600/90 hover:bg-emerald-500 text-white px-3 py-1 rounded-xl text-center cursor-pointer transition shadow-lg border border-emerald-400/50 mb-0.5 flex items-center justify-between text-xs sm:text-sm animate-pulse shrink-0"
         >
           <span className="font-bold">🏁 Koniec: {lastResult.resultDetail}</span>
           <span className="bg-emerald-950/80 px-2 py-0.5 rounded-lg text-[11px] font-semibold text-emerald-200">
@@ -176,49 +187,49 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         </div>
       )}
 
-      {/* TOP: NORTH SEAT & DUMMY CARDS */}
-      <div className="flex flex-col items-center gap-0.5">
+      {/* TOP: PARTNER SEAT (topSeat) & DUMMY CARDS */}
+      <div className="w-full flex flex-col items-center gap-0.5 shrink-0">
         <div className={`px-3 py-0.5 rounded-full text-xs font-bold border transition ${
-          currentTurn === 'N' || currentBidder === 'N'
+          currentTurn === topSeat || currentBidder === topSeat
             ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-            : isNSVul
+            : isSeatVul(topSeat)
             ? 'bg-rose-950/90 text-rose-200 border-rose-500'
             : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
         }`}>
-          N: {seats.N ? seats.N.name : 'Pusto'}
-          {isNSVul ? ' (Po)' : ' (Przed)'}
+          {topSeat}: {seats[topSeat] ? seats[topSeat]!.name : 'Pusto'}
+          {isSeatVul(topSeat) ? ' (Po)' : ' (Przed)'}
           {phase === 'PLAYING' && (
-            declarerSeat === 'N' ? ' • Rozgrywający' :
-            dummySeat === 'N' ? ' • Dziadek' :
+            declarerSeat === topSeat ? ' • Rozgrywający' :
+            dummySeat === topSeat ? ' • Dziadek' :
             ' • Partner (Obrońca)'
           )}
         </div>
 
-        {/* If North is Defender, partner's cards are hidden */}
-        {phase === 'PLAYING' && dummySeat !== 'N' && declarerSeat !== 'N' && (
+        {/* If topSeat is not Dummy, partner's cards are hidden during play */}
+        {phase === 'PLAYING' && dummySeat !== topSeat && (
           <div className="flex items-center gap-1.5 px-3 py-0.5 rounded-full bg-slate-900/90 border border-slate-700/80 text-[10px] sm:text-[11px] text-slate-300 shadow-sm">
             <span className="text-amber-400">🔒</span>
-            <span className="font-semibold text-slate-200">Karty partnera zakryte</span>
+            <span className="font-semibold text-slate-200">Karty partnera ({topSeat}) zakryte</span>
             <span className="text-slate-400">
-              ({Math.max(0, 13 - (pastTricks ? pastTricks.length : 0) - (getPlayedCardForSeat('N') ? 1 : 0))} kart)
+              ({Math.max(0, 13 - (pastTricks ? pastTricks.length : 0) - (getPlayedCardForSeat(topSeat) ? 1 : 0))} kart)
             </span>
           </div>
         )}
 
-        {/* NORTH HAND: Dummy during play OR full hand revealed in BOARD_RESULT */}
-        {((phase === 'PLAYING' && dummySeat === 'N' && dummyHand && dummyHand.length > 0) ||
-          (phase === 'BOARD_RESULT' && (state.dealHands?.N || dummyHand))) && (
-          <div className="w-full max-w-xl mx-auto px-1">
+        {/* TOP HAND: Partner Dummy during play OR full hand revealed in BOARD_RESULT */}
+        {((phase === 'PLAYING' && dummySeat === topSeat && dummyHand && dummyHand.length > 0) ||
+          (phase === 'BOARD_RESULT' && (state.dealHands?.[topSeat] || (dummySeat === topSeat && dummyHand)))) && (
+          <div className="w-full">
             <DummyHandView
-              dummySeat="N"
-              dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.N || dummyHand || []) : dummyHand!}
+              dummySeat={topSeat}
+              dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.[topSeat] || dummyHand || []) : dummyHand!}
               canIPlayDummy={phase === 'PLAYING' ? canIPlayDummy : false}
               leadCardSuit={phase === 'PLAYING' ? leadCardSuit : null}
               onPlayCard={phase === 'PLAYING' ? onPlayCard : () => {}}
               trumpSuit={contract ? contract.suit : undefined}
               declarerSeat={declarerSeat}
               mySeat={mySeat}
-              seatName={seats.N?.name}
+              seatName={seats[topSeat]?.name}
             />
           </div>
         )}
@@ -229,10 +240,10 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         <div className="w-full max-w-xl mx-auto px-2 py-0.5 bg-slate-950/90 border border-slate-700/80 rounded-lg flex items-center justify-between text-[11px] sm:text-xs font-bold shadow-md my-0.5 shrink-0">
           {/* N-S tricks */}
           <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${
-            (mySeat === 'N' || mySeat === 'S') ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300' : 'text-slate-300'
+            (bottomSeat === 'N' || bottomSeat === 'S') ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300' : 'text-slate-300'
           }`}>
             <span className="text-[10px] font-semibold text-slate-400">
-              {(mySeat === 'N' || mySeat === 'S') ? 'My (N-S):' : 'Para N-S:'}
+              {(bottomSeat === 'N' || bottomSeat === 'S') ? 'My (N-S):' : 'Para N-S:'}
             </span>
             <span className="text-sm sm:text-base font-black text-white font-mono">{tricksWonNS}</span>
             {(contract.declarer === 'N' || contract.declarer === 'S') && (
@@ -251,10 +262,10 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
           {/* E-W tricks */}
           <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded ${
-            (mySeat === 'E' || mySeat === 'W') ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300' : 'text-slate-300'
+            (bottomSeat === 'E' || bottomSeat === 'W') ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300' : 'text-slate-300'
           }`}>
             <span className="text-[10px] font-semibold text-slate-400">
-              {(mySeat === 'E' || mySeat === 'W') ? 'My (E-W):' : 'Para E-W:'}
+              {(bottomSeat === 'E' || bottomSeat === 'W') ? 'My (E-W):' : 'Para E-W:'}
             </span>
             <span className="text-sm sm:text-base font-black text-white font-mono">{tricksWonEW}</span>
             {(contract.declarer === 'E' || contract.declarer === 'W') && (
@@ -264,34 +275,34 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         </div>
       )}
 
-      {/* MIDDLE SECTION: WEST, FELT TABLE (TRICK / AUCTION), EAST */}
-      <div className="flex-1 min-h-0 flex items-center justify-between my-0.5 sm:my-1 relative">
-        {/* WEST SEAT */}
+      {/* MIDDLE SECTION: LEFT OPPONENT (leftSeat), FELT TABLE, RIGHT OPPONENT (rightSeat) */}
+      <div className="flex-1 min-h-0 flex items-center justify-between my-0.5 relative">
+        {/* LEFT SEAT */}
         <div className="flex flex-col items-center justify-center shrink-0">
-          {(phase === 'PLAYING' && dummySeat === 'W' && dummyHand && dummyHand.length > 0) ||
-           (phase === 'BOARD_RESULT' && (state.dealHands?.W || (dummySeat === 'W' && dummyHand))) ? (
+          {(phase === 'PLAYING' && dummySeat === leftSeat && dummyHand && dummyHand.length > 0) ||
+           (phase === 'BOARD_RESULT' && (state.dealHands?.[leftSeat] || (dummySeat === leftSeat && dummyHand))) ? (
             <SideDummyHandView
-              dummySeat="W"
-              dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.W || dummyHand || []) : dummyHand!}
+              dummySeat={leftSeat}
+              dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.[leftSeat] || dummyHand || []) : dummyHand!}
               trumpSuit={contract ? contract.suit : undefined}
               canIPlayDummy={phase === 'PLAYING' ? canIPlayDummy : false}
               leadCardSuit={phase === 'PLAYING' ? leadCardSuit : null}
               onPlayCard={phase === 'PLAYING' ? onPlayCard : () => {}}
-              seatName={seats.W?.name}
+              seatName={seats[leftSeat]?.name}
             />
           ) : (
-            <div className={`w-14 sm:w-20 px-2 py-0.5 rounded-lg text-center text-[11px] sm:text-xs font-bold border transition ${
-              currentTurn === 'W' || currentBidder === 'W'
+            <div className={`w-14 sm:w-20 px-1.5 py-1 rounded-lg text-center text-[10px] sm:text-xs font-bold border transition ${
+              currentTurn === leftSeat || currentBidder === leftSeat
                 ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-                : isEWVul
+                : isSeatVul(leftSeat)
                 ? 'bg-rose-950/90 text-rose-200 border-rose-500'
                 : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
             }`}>
-              W: {seats.W ? seats.W.name : 'Pusto'}
-              {isEWVul ? ' (Po)' : ' (Przed)'}
-              {declarerSeat === 'W' && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
-              {dummySeat === 'W' && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️</span>}
-              {phase === 'PLAYING' && declarerSeat !== 'W' && dummySeat !== 'W' && (
+              {leftSeat}: {seats[leftSeat] ? seats[leftSeat]!.name : 'Pusto'}
+              {isSeatVul(leftSeat) ? ' (Po)' : ' (Przed)'}
+              {declarerSeat === leftSeat && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
+              {dummySeat === leftSeat && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️</span>}
+              {phase === 'PLAYING' && declarerSeat !== leftSeat && dummySeat !== leftSeat && (
                 <span className="block text-[8px] text-slate-400">Obrońca</span>
               )}
             </div>
@@ -305,7 +316,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               onCollectTrick();
             }
           }}
-          className={`flex-1 max-w-xl mx-1 sm:mx-2 bg-felt/90 border-2 sm:border-4 border-amber-900/40 rounded-2xl p-1 sm:p-2 shadow-inner relative min-h-[120px] sm:min-h-[160px] max-h-[165px] sm:max-h-[220px] flex flex-col items-center justify-center ${
+          className={`flex-1 max-w-xl mx-1 sm:mx-2 bg-felt/90 border-2 sm:border-4 border-amber-900/40 rounded-2xl p-1 sm:p-2 shadow-inner relative min-h-[120px] sm:min-h-[160px] max-h-[175px] sm:max-h-[220px] flex flex-col items-center justify-center ${
             currentTrick.cards.length === 4 ? 'cursor-pointer' : ''
           }`}
         >
@@ -325,6 +336,10 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             declarerSeat={declarerSeat}
             currentTrick={currentTrick}
             seatNames={SEAT_NAMES}
+            topSeat={topSeat}
+            bottomSeat={bottomSeat}
+            leftSeat={leftSeat}
+            rightSeat={rightSeat}
             onCollectTrick={onCollectTrick}
             onOpenResultModal={() => setShowResultModal(true)}
             onNextBoard={onNextBoard}
@@ -332,32 +347,32 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           />
         </div>
 
-        {/* EAST SEAT */}
+        {/* RIGHT SEAT */}
         <div className="flex flex-col items-center justify-center shrink-0">
-          {(phase === 'PLAYING' && dummySeat === 'E' && dummyHand && dummyHand.length > 0) ||
-           (phase === 'BOARD_RESULT' && (state.dealHands?.E || (dummySeat === 'E' && dummyHand))) ? (
+          {(phase === 'PLAYING' && dummySeat === rightSeat && dummyHand && dummyHand.length > 0) ||
+           (phase === 'BOARD_RESULT' && (state.dealHands?.[rightSeat] || (dummySeat === rightSeat && dummyHand))) ? (
             <SideDummyHandView
-              dummySeat="E"
-              dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.E || dummyHand || []) : dummyHand!}
+              dummySeat={rightSeat}
+              dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.[rightSeat] || dummyHand || []) : dummyHand!}
               trumpSuit={contract ? contract.suit : undefined}
               canIPlayDummy={phase === 'PLAYING' ? canIPlayDummy : false}
               leadCardSuit={phase === 'PLAYING' ? leadCardSuit : null}
               onPlayCard={phase === 'PLAYING' ? onPlayCard : () => {}}
-              seatName={seats.E?.name}
+              seatName={seats[rightSeat]?.name}
             />
           ) : (
-            <div className={`w-14 sm:w-20 px-2 py-0.5 rounded-lg text-center text-[11px] sm:text-xs font-bold border transition ${
-              currentTurn === 'E' || currentBidder === 'E'
+            <div className={`w-14 sm:w-20 px-1.5 py-1 rounded-lg text-center text-[10px] sm:text-xs font-bold border transition ${
+              currentTurn === rightSeat || currentBidder === rightSeat
                 ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-                : isEWVul
+                : isSeatVul(rightSeat)
                 ? 'bg-rose-950/90 text-rose-200 border-rose-500'
                 : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
             }`}>
-              E: {seats.E ? seats.E.name : 'Pusto'}
-              {isEWVul ? ' (Po)' : ' (Przed)'}
-              {declarerSeat === 'E' && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
-              {dummySeat === 'E' && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️</span>}
-              {phase === 'PLAYING' && declarerSeat !== 'E' && dummySeat !== 'E' && (
+              {rightSeat}: {seats[rightSeat] ? seats[rightSeat]!.name : 'Pusto'}
+              {isSeatVul(rightSeat) ? ' (Po)' : ' (Przed)'}
+              {declarerSeat === rightSeat && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
+              {dummySeat === rightSeat && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️</span>}
+              {phase === 'PLAYING' && declarerSeat !== rightSeat && dummySeat !== rightSeat && (
                 <span className="block text-[8px] text-slate-400">Obrońca</span>
               )}
             </div>
@@ -365,23 +380,23 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         </div>
       </div>
 
-      {/* BOTTOM SECTION: SOUTH SEAT / BIDDING CONTROLS OR MY HAND */}
-      <div className="flex flex-col items-center w-full max-w-3xl mx-auto space-y-0.5 sm:space-y-1 shrink-0">
+      {/* BOTTOM SECTION: MY SEAT (bottomSeat) / BIDDING CONTROLS & MY HAND */}
+      <div className="flex flex-col items-center w-full space-y-0.5 sm:space-y-1 shrink-0">
         <div className={`px-3 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border transition shrink-0 ${
-          currentTurn === 'S' || currentBidder === 'S'
+          currentTurn === bottomSeat || currentBidder === bottomSeat
             ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-            : isNSVul
+            : isSeatVul(bottomSeat)
             ? 'bg-rose-950/90 text-rose-200 border-rose-500'
             : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
         }`}>
-          S: {seats.S ? seats.S.name : 'Pusto'}
-          {isNSVul ? ' (Po)' : ' (Przed)'}
+          {bottomSeat}: {seats[bottomSeat] ? seats[bottomSeat]!.name : 'Pusto'}
+          {isSeatVul(bottomSeat) ? ' (Po)' : ' (Przed)'}
           {phase === 'PLAYING' && (
-            declarerSeat === 'S' ? ' • Rozgrywający' :
-            dummySeat === 'S' ? ' • Dziadek' :
+            declarerSeat === bottomSeat ? ' • Ty (Rozgrywający 🎯)' :
+            dummySeat === bottomSeat ? ' • Ty (Dziadek)' :
             ' • Ty (Obrońca)'
           )}
-          {phase !== 'PLAYING' && mySeat === 'S' && ' • (Ty)'}
+          {phase !== 'PLAYING' && mySeat === bottomSeat && ' • (Ty)'}
         </div>
 
         {/* Bidding Controls if Bidding phase */}
@@ -396,17 +411,18 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           </div>
         )}
 
-        {/* Player's Cards in Hand - Grouped by suit with overlap exactly like Dummy */}
-        {((phase !== 'BOARD_RESULT' && myHand && myHand.length > 0) ||
-          (phase === 'BOARD_RESULT' && (state.dealHands?.S || myHand))) && (
+        {/* Player's Cards in Hand - Full-width large cards at the bottom */}
+        {bottomHandToDisplay && bottomHandToDisplay.length > 0 && (
           <PlayerHandView
-            hand={phase === 'BOARD_RESULT' ? (state.dealHands?.S || myHand) : myHand}
+            hand={bottomHandToDisplay}
             isMyTurn={phase === 'PLAYING' ? isMyTurn : false}
+            canIPlayDummy={phase === 'PLAYING' ? canIPlayDummy : false}
+            currentTurn={currentTurn}
             phase={phase}
             leadCardSuit={phase === 'PLAYING' ? leadCardSuit : null}
             onPlayCard={phase === 'PLAYING' ? onPlayCard : () => {}}
-            mySeat={mySeat}
-            seatName={mySeat ? SEAT_NAMES[mySeat] : undefined}
+            mySeat={bottomSeat}
+            seatName={seats[bottomSeat]?.name || SEAT_NAMES[bottomSeat]}
             trumpSuit={contract ? contract.suit : undefined}
           />
         )}

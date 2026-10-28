@@ -149,31 +149,24 @@ export const LobbyOverlay: React.FC<LobbyOverlayProps> = ({
           Pokaż kod QR dla współgraczy (Dołącz do pokoju {state.roomId})
         </button>
 
-        {/* Play with bots option */}
-        {onStartBotGame && (
-          <button
-            type="button"
-            onClick={onStartBotGame}
-            className="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs sm:text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-2 border border-indigo-400/40"
-          >
-            <Bot className="w-5 h-5 text-indigo-200" />
-            <span>🤖 Zagraj testowo z botami (N, E, W)</span>
-          </button>
-        )}
-
-        {allSeatsOccupied ? (
+        {/* Start Game Button: Works for 1, 2, 3, or 4 seated players (empty seats filled by server bots!) */}
+        {seatedCount >= 1 ? (
           <button
             type="button"
             onClick={onStartGame}
-            className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-base rounded-xl transition shadow-lg flex items-center justify-center gap-2"
+            className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 active:scale-98 text-slate-950 font-black text-sm sm:text-base rounded-xl transition shadow-lg flex items-center justify-center gap-2"
           >
-            <Play className="w-5 h-5 fill-current" />
-            Rozpocznij Rozdanie #1
+            <Play className="w-5 h-5 fill-current shrink-0" />
+            <span>
+              {seatedCount === 4
+                ? `Rozpocznij Rozdanie #${state.boardNumber || 1} (4 graczy)`
+                : `Rozpocznij grę (${seatedCount} ${seatedCount === 1 ? 'gracz' : 'graczy'} + ${4 - seatedCount} ${4 - seatedCount === 1 ? 'Bot' : 'Boty'} 🤖)`}
+            </span>
           </button>
         ) : (
-          <div className="text-xs text-amber-300/80 bg-amber-950/30 border border-amber-900/50 p-2.5 rounded-lg flex items-center justify-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            Oczekiwanie na zajęcie wszystkich 4 miejsc przez graczy...
+          <div className="text-xs text-amber-300 bg-amber-950/40 border border-amber-500/50 p-3 rounded-xl flex items-center justify-center gap-2 font-bold">
+            <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+            <span>👆 Wybierz swoje miejsce powyżej (N, E, S lub W), aby rozpocząć grę!</span>
           </div>
         )}
       </div>

@@ -242,7 +242,7 @@ export const App: React.FC = () => {
   };
 
   const handleStartGame = () => {
-    if (isBotGame) {
+    if (isBotGame || !connected || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
       const targetBoard = (localScores.length % 8) + 1;
       startBotGame(mySeat || 'S', targetBoard);
     } else {
