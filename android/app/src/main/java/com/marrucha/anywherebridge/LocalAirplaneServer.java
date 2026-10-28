@@ -607,7 +607,7 @@ public class LocalAirplaneServer extends NanoWSD {
                     broadcastObj.put("type", "chat_message");
                     broadcastObj.put("message", chatMsg);
 
-                    for (BridgeWebSocket client : clients) {
+                    for (BridgeWebSocket client : allSockets) {
                         try {
                             client.send(broadcastObj.toString());
                         } catch (Exception ignored) {}
