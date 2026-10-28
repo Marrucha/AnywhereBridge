@@ -76,21 +76,21 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
         </div>
       </div>
 
-      {/* 4 Suits in bridge column notation with REAL PLAYING CARDS */}
+      {/* 4 Suits in bridge column notation with REAL PLAYING CARDS (SAME SIZE AS DUMMY N: size="dummy") */}
       <div className="space-y-1 pt-0.5">
         {suitsOrder.map(suit => {
           const cards = cardsBySuit[suit];
           return (
-            <div key={suit} className="flex items-center gap-1 min-h-[38px] sm:min-h-[48px]">
+            <div key={suit} className="flex items-center gap-1 min-h-[48px] sm:min-h-[66px]">
               {/* Suit marker */}
-              <span className={`text-xs sm:text-sm font-black w-3.5 text-center shrink-0 ${SUIT_COLORS[suit]}`}>
+              <span className={`text-sm sm:text-base font-black w-4 text-center shrink-0 ${SUIT_COLORS[suit]}`}>
                 {SUIT_SYMBOLS[suit]}
               </span>
 
-              {/* Real playing cards with overlap */}
+              {/* Real playing cards with overlap - EXACT same size as dummy N */}
               <div className="flex items-center">
                 {cards.length === 0 ? (
-                  <span className="text-[10px] text-slate-500 font-mono pl-1">—</span>
+                  <span className="text-xs text-slate-500 font-mono pl-1">—</span>
                 ) : (
                   cards.map((card, idx) => {
                     const isPlayable = canIPlayDummy && isCardLegal(card, dummyHand, leadCardSuit);
@@ -98,12 +98,12 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
                       <div
                         key={card.id}
                         className={`transition-transform ${
-                          idx > 0 ? '-ml-[17px] sm:-ml-[21px]' : ''
+                          idx > 0 ? '-ml-[19px] sm:-ml-[25px]' : ''
                         } ${isPlayable ? 'hover:-translate-y-1 z-20' : 'z-10'}`}
                       >
                         <CardView
                           card={card}
-                          size="sm"
+                          size="dummy"
                           isPlayable={isPlayable}
                           isHighlighted={isPlayable}
                           onClick={() => {

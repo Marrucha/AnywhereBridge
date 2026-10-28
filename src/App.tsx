@@ -7,6 +7,7 @@ import { ConnectionModal } from './components/ConnectionModal';
 import { PlayersModal } from './components/PlayersModal';
 import { VulBadge } from './components/VulBadge';
 import { ConnectingScreen } from './components/ConnectingScreen';
+import { EightBoardSummary } from './components/EightBoardSummary';
 import { useLocalBotGame } from './hooks/useLocalBotGame';
 import {
   getStoredScores,
@@ -107,22 +108,9 @@ export const App: React.FC = () => {
 
   // Auto-detect server info (IPs) for QR code
   useEffect(() => {
-    const fetchInfo = async () => {
-      const endpoints = ['/api/info', 'http://127.0.0.1:8080/api/info', 'http://192.168.43.1:8080/api/info'];
-      for (const ep of endpoints) {
-        try {
-          const res = await fetch(ep);
-          if (res.ok) {
-            const data = await res.json();
-            if (data.serverIps && Array.isArray(data.serverIps)) {
-              setDetectedIps(data.serverIps);
-              break;
-            }
-          }
-        } catch (ignored) {}
-      }
-    };
-    fetchInfo();
+    ['/api/info', 'http://127.0.0.1:8080/api/info', 'http://192.168.43.1:8080/api/info'].forEach(ep => {
+      fetch(ep).then(r => r.ok && r.json()).then(d => d?.serverIps && setDetectedIps(d.serverIps)).catch(() => {});
+    });
   }, []);
 
   // Connect to WebSocket (only when in multiplayer mode)
@@ -279,6 +267,14 @@ export const App: React.FC = () => {
       nextBotGameBoard();
     } else {
       sendMessage({ type: 'next_board' });
+    }
+  };
+
+  const handleStartNewEight = () => {
+    if (isBotGame) {
+      startBotGame(mySeat || 'S', 1);
+    } else {
+      sendMessage({ type: 'start_game' });
     }
   };
 
@@ -446,6 +442,7 @@ export const App: React.FC = () => {
             onResetRoom={handleResetRoom}
             onOpenQR={() => setIsQROpen(true)}
             onStartBotGame={() => startBotGame(mySeat || 'S', 4)}
+            onStartNewEight={handleStartNewEight}
             isBotGame={isBotGame}
             ddsResult={ddsResult}
             ddsLoading={ddsLoading}
@@ -467,7 +464,14 @@ export const App: React.FC = () => {
         onClose={() => setIsScoreOpen(false)}
         scores={localScores}
         onClearHistory={handleClearHistory}
+        onStartNewEight={handleStartNewEight}
       />
+
+      {effectiveState?.phase === 'BOARD_RESULT' && effectiveState?.boardNumber % 8 === 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+          <EightBoardSummary scores={localScores} onStartNewEight={handleStartNewEight} />
+        </div>
+      )}
 
       <QRModal
         isOpen={isQROpen}

@@ -3,7 +3,7 @@ import { Card, Contract, PlayedCard, RoomState, Seat, Trick } from '../types/bri
 import { CardView } from './CardView';
 import { BiddingBox } from './BiddingBox';
 import { BiddingTray } from './BiddingTray';
-import { DdsView } from './DdsView';
+import { BoardResultModal } from './BoardResultModal';
 import { DummyHandView } from './DummyHandView';
 import { SideDummyHandView } from './SideDummyHandView';
 import { PlayerHandView } from './PlayerHandView';
@@ -30,6 +30,7 @@ interface BridgeTableProps {
   isBotGame?: boolean;
   ddsResult?: DdsTableResult | null;
   ddsLoading?: boolean;
+  onStartNewEight?: () => void;
 }
 
 const SEAT_NAMES: Record<Seat, string> = {
@@ -54,6 +55,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   isBotGame = false,
   ddsResult = null,
   ddsLoading = false,
+  onStartNewEight,
 }) => {
   const {
     phase,
@@ -138,65 +140,16 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
       {/* RESULT MODAL OVERLAY */}
       {phase === 'BOARD_RESULT' && lastResult && showResultModal && (
-        <div className="absolute inset-0 z-40 flex items-center justify-center p-3 bg-black/80 backdrop-blur-sm animate-fadeIn overflow-y-auto">
-          <div className="bg-slate-900 border-2 border-emerald-500 rounded-2xl p-4 sm:p-5 max-w-lg w-full text-center shadow-2xl space-y-3.5 my-auto max-h-[95vh] overflow-y-auto">
-            <span className="text-xs font-bold uppercase tracking-widest text-emerald-400">Rozdanie zakończone</span>
-            <h3 className="text-xl sm:text-2xl font-black text-white">{lastResult.resultDetail}</h3>
-
-            <div className="grid grid-cols-2 gap-2.5 py-2 border-y border-slate-800 text-sm">
-              <div>
-                <span className="text-slate-400 block text-xs">Lewy N-S</span>
-                <span className="text-xl font-black text-white">{lastResult.tricksWonNS}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-xs">Lewy E-W</span>
-                <span className="text-xl font-black text-white">{lastResult.tricksWonEW}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 bg-slate-950/60 p-2.5 rounded-xl text-sm">
-              <div>
-                <span className="text-slate-400 text-xs block">Zapis N-S</span>
-                <span className={`text-base sm:text-lg font-bold ${lastResult.scoreNS >= 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                  {lastResult.scoreNS >= 0 ? `+${lastResult.scoreNS}` : lastResult.scoreNS}
-                </span>
-              </div>
-              <div>
-                <span className="text-slate-400 text-xs block">Zapis E-W</span>
-                <span className={`text-base sm:text-lg font-bold ${lastResult.scoreEW >= 0 ? 'text-amber-400' : 'text-slate-400'}`}>
-                  {lastResult.scoreEW >= 0 ? `+${lastResult.scoreEW}` : lastResult.scoreEW}
-                </span>
-              </div>
-            </div>
-
-            {/* Double Dummy Solver (DDS) & Minimax Matrix */}
-            <DdsView
-              ddsResult={ddsResult}
-              loading={ddsLoading}
-              contract={contract}
-              wonNS={lastResult.tricksWonNS}
-              wonEW={lastResult.tricksWonEW}
-            />
-
-            <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={() => setShowResultModal(false)}
-                className="flex-1 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition border border-slate-700"
-              >
-                👁️ Podejrzyj stół
-              </button>
-              <button
-                type="button"
-                onClick={onNextBoard}
-                className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs sm:text-sm rounded-xl transition shadow-lg flex items-center justify-center gap-1.5"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Następne (#{state.boardNumber + 1})
-              </button>
-            </div>
-          </div>
-        </div>
+        <BoardResultModal
+          lastResult={lastResult}
+          contract={contract}
+          boardNumber={state.boardNumber}
+          ddsResult={ddsResult}
+          ddsLoading={ddsLoading}
+          onClose={() => setShowResultModal(false)}
+          onNextBoard={onNextBoard}
+          onStartNewEight={onStartNewEight}
+        />
       )}
 
       {/* RESULT BANNER (When table is previewed after board finishes) */}
@@ -208,9 +161,9 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           }}
           className="bg-emerald-600/90 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-xl text-center cursor-pointer transition shadow-lg border border-emerald-400/50 mb-1 flex items-center justify-between text-xs sm:text-sm animate-pulse"
         >
-          <span className="font-bold">🏁 Koniec rozdania: {lastResult.resultDetail}</span>
+          <span className="font-bold">🏁 Koniec: {lastResult.resultDetail}</span>
           <span className="bg-emerald-950/80 px-2 py-0.5 rounded-lg text-[11px] font-semibold text-emerald-200">
-            Dotknij, aby otworzyć protokół & DDS 📊
+            {state.boardNumber % 8 === 0 ? '🏆 Zakończona 8! Protokół & DDS 📊' : 'Protokół & DDS 📊'}
           </span>
         </div>
       )}

@@ -5,6 +5,7 @@ import { determineTrickWinner, isCardLegal } from './play';
 import { calculateDuplicateScore, formatContractString } from './scoring';
 import { getBoardSetup, nextSeat } from './vulnerability';
 import { chooseBotCard, getBotBid } from './bot';
+import { calculateDealHcp, calculateBoardImp } from './impScoring';
 
 export interface LocalGameSession {
   state: RoomState;
@@ -110,6 +111,9 @@ export function applyLocalBid(
 
   if (biddingStatus.isFinished) {
     if (biddingStatus.isAllPass) {
+      const { hcpNS, hcpEW } = calculateDealHcp(fullHands);
+      const impRes = calculateBoardImp(0, hcpNS, state.vulnerability);
+      const impStr = impRes.impNS > 0 ? `+${impRes.impNS} IMP` : impRes.impNS < 0 ? `${impRes.impNS} IMP` : `0 IMP`;
       nextPhase = 'BOARD_RESULT';
       nextResult = {
         id: `local_b_${Date.now()}`,
@@ -122,8 +126,14 @@ export function applyLocalBid(
         tricksWonEW: 0,
         scoreNS: 0,
         scoreEW: 0,
-        resultDetail: '4x PAS (Rozdanie pasowe, 0 pkt)',
+        resultDetail: `4x PAS (0 pkt) • ${impStr} (PC: ${hcpNS}-${hcpEW})`,
         timestamp: Date.now(),
+        hcpNS,
+        hcpEW,
+        expectedScoreNS: impRes.expectedScoreNS,
+        expectedContractDesc: impRes.expectedContractDesc,
+        impNS: impRes.impNS,
+        impEW: impRes.impEW,
       };
     } else {
       nextPhase = 'PLAYING';
@@ -344,7 +354,12 @@ export function resolveCompletedTrick(session: LocalGameSession): LocalGameSessi
     const score = calculateDuplicateScore(state.contract!, wonNS, wonEW, state.vulnerability);
     const cStr = formatContractString(state.contract!);
     const diffStr = score.diff === 0 ? '=' : score.diff > 0 ? `+${score.diff}` : `${score.diff}`;
-    const resultDetail = `${cStr} ${diffStr} (${score.points >= 0 ? '+' : ''}${score.points})`;
+    const baseResultDetail = `${cStr} ${diffStr} (${score.points >= 0 ? '+' : ''}${score.points})`;
+
+    const { hcpNS, hcpEW } = calculateDealHcp(fullHands);
+    const impRes = calculateBoardImp(score.scoreNS, hcpNS, state.vulnerability);
+    const impStr = impRes.impNS > 0 ? `+${impRes.impNS} IMP` : impRes.impNS < 0 ? `${impRes.impNS} IMP` : `0 IMP`;
+    const fullResultDetail = `${baseResultDetail} • ${impStr} (PC: ${hcpNS}-${hcpEW})`;
 
     const lastResult: ScoreRecord = {
       id: `local_b_${Date.now()}`,
@@ -357,8 +372,14 @@ export function resolveCompletedTrick(session: LocalGameSession): LocalGameSessi
       tricksWonEW: wonEW,
       scoreNS: score.scoreNS,
       scoreEW: score.scoreEW,
-      resultDetail,
+      resultDetail: fullResultDetail,
       timestamp: Date.now(),
+      hcpNS,
+      hcpEW,
+      expectedScoreNS: impRes.expectedScoreNS,
+      expectedContractDesc: impRes.expectedContractDesc,
+      impNS: impRes.impNS,
+      impEW: impRes.impEW,
     };
 
     const finalState: RoomState = {

@@ -61,6 +61,13 @@ export interface ScoreRecord {
   scoreEW: number; // Positive is favorable for EW
   resultDetail: string; // e.g. "4♠ = (+420)" or "3NT -1 (-50)"
   timestamp: number;
+  // Zapis impowy wg PC (Milton HCP)
+  hcpNS?: number;
+  hcpEW?: number;
+  expectedScoreNS?: number;
+  expectedContractDesc?: string;
+  impNS?: number;
+  impEW?: number;
 }
 
 export type GamePhase = 'LOBBY' | 'BIDDING' | 'PLAYING' | 'BOARD_RESULT';
