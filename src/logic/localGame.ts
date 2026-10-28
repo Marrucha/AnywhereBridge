@@ -121,7 +121,7 @@ export function applyLocalBid(
       const impStr = impRes.impNS > 0 ? `+${impRes.impNS} IMP` : impRes.impNS < 0 ? `${impRes.impNS} IMP` : `0 IMP`;
       nextPhase = 'BOARD_RESULT';
       nextResult = {
-        id: `local_b_${Date.now()}`,
+        id: `local_b_${state.boardNumber}_${Math.floor(Date.now() / 5000)}`,
         boardNumber: state.boardNumber,
         dealer: state.dealer,
         vulnerability: state.vulnerability,
@@ -367,7 +367,7 @@ export function resolveCompletedTrick(session: LocalGameSession): LocalGameSessi
     const fullResultDetail = `${baseResultDetail} • ${impStr} (PC: ${hcpNS}-${hcpEW})`;
 
     const lastResult: ScoreRecord = {
-      id: `local_b_${Date.now()}`,
+      id: `local_b_${state.boardNumber}_${Math.floor(Date.now() / 5000)}`,
       boardNumber: state.boardNumber,
       dealer: state.dealer,
       vulnerability: state.vulnerability,

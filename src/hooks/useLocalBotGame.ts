@@ -32,8 +32,20 @@ export function useLocalBotGame(
   const [ddsResult, setDdsResult] = useState<DdsTableResult | null>(null);
   const [ddsLoading, setDdsLoading] = useState<boolean>(false);
   const botTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastRecordedIdRef = useRef<string | null>(null);
 
   const activeSeat: Seat = currentSeat || 'S';
+
+  // Synchronize score recording safely outside state updaters, preventing duplicate entries
+  useEffect(() => {
+    const lastRes = localSession?.state.lastResult;
+    if (lastRes && lastRes.id !== lastRecordedIdRef.current) {
+      lastRecordedIdRef.current = lastRes.id;
+      if (onScoreRecorded) {
+        onScoreRecorded(lastRes);
+      }
+    }
+  }, [localSession?.state.lastResult, onScoreRecorded]);
 
   const triggerDds = (hands: Record<Seat, Card[]>, dealer: Seat, vul: any) => {
     setDdsLoading(true);
@@ -65,10 +77,6 @@ export function useLocalBotGame(
     if (!localSession) return;
     const nextSession = applyLocalBid(localSession, bid);
     setLocalSession(nextSession);
-
-    if (nextSession.state.lastResult && onScoreRecorded) {
-      onScoreRecorded(nextSession.state.lastResult);
-    }
   };
 
   const playBotGameCard = (cardId: string) => {
@@ -84,10 +92,6 @@ export function useLocalBotGame(
 
     const nextSession = applyLocalPlayCard(localSession, cardId, playSeat);
     setLocalSession(nextSession);
-
-    if (nextSession.state.lastResult && onScoreRecorded) {
-      onScoreRecorded(nextSession.state.lastResult);
-    }
   };
 
   const collectCompletedTrick = () => {
@@ -96,11 +100,7 @@ export function useLocalBotGame(
     if (state.phase === 'PLAYING' && state.currentTrick.cards.length === 4) {
       setLocalSession(prev => {
         if (!prev) return null;
-        const next = resolveCompletedTrick(prev);
-        if (next.state.lastResult && onScoreRecorded) {
-          onScoreRecorded(next.state.lastResult);
-        }
-        return next;
+        return resolveCompletedTrick(prev);
       });
     }
   };
@@ -133,20 +133,12 @@ export function useLocalBotGame(
       if (botAction.type === 'bid') {
         setLocalSession(prev => {
           if (!prev) return null;
-          const next = applyLocalBid(prev, botAction.bid);
-          if (next.state.lastResult && onScoreRecorded) {
-            onScoreRecorded(next.state.lastResult);
-          }
-          return next;
+          return applyLocalBid(prev, botAction.bid);
         });
       } else if (botAction.type === 'play') {
         setLocalSession(prev => {
           if (!prev) return null;
-          const next = applyLocalPlayCard(prev, botAction.cardId!, botAction.seat);
-          if (next.state.lastResult && onScoreRecorded) {
-            onScoreRecorded(next.state.lastResult);
-          }
-          return next;
+          return applyLocalPlayCard(prev, botAction.cardId!, botAction.seat);
         });
       }
     }, 700);

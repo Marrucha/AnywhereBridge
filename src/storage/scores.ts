@@ -9,7 +9,25 @@ export function getStoredScores(): ScoreRecord[] {
   try {
     const raw = localStorage.getItem(SCORES_STORAGE_KEY);
     if (!raw) return [];
-    return JSON.parse(raw);
+    const list: ScoreRecord[] = JSON.parse(raw);
+    if (!Array.isArray(list)) return [];
+
+    // Deduplicate any duplicates (e.g. from previous StrictMode double invocations)
+    const seenIds = new Set<string>();
+    const seenBoardBuckets = new Set<string>();
+    const deduplicated: ScoreRecord[] = [];
+
+    for (const item of list) {
+      if (!item || !item.id) continue;
+      const bucket = `${item.boardNumber}_${Math.floor(item.timestamp / 15000)}`;
+      if (!seenIds.has(item.id) && !seenBoardBuckets.has(bucket)) {
+        seenIds.add(item.id);
+        seenBoardBuckets.add(bucket);
+        deduplicated.push(item);
+      }
+    }
+
+    return deduplicated;
   } catch (e) {
     console.error('Failed to load bridge scores from localStorage:', e);
     return [];
@@ -19,8 +37,14 @@ export function getStoredScores(): ScoreRecord[] {
 export function saveScoreRecord(record: ScoreRecord): ScoreRecord[] {
   try {
     const current = getStoredScores();
-    // Avoid duplicate board ID
-    const updated = [record, ...current.filter(r => r.id !== record.id)];
+    const timeBucket = Math.floor(record.timestamp / 15000);
+    // Deduplicate by ID and boardNumber within the same 15-second window
+    const updated = [
+      record,
+      ...current.filter(
+        r => r.id !== record.id && !(r.boardNumber === record.boardNumber && Math.floor(r.timestamp / 15000) === timeBucket)
+      ),
+    ];
     localStorage.setItem(SCORES_STORAGE_KEY, JSON.stringify(updated));
     return updated;
   } catch (e) {
