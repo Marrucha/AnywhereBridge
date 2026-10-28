@@ -11,13 +11,19 @@ interface TableChatModalProps {
   myName: string;
 }
 
-const QUICK_PHRASES = [
+const QUICK_PHRASES_ROW1 = [
+  '👋 Jesteście?',
+  '✅ Tak',
+  '❌ Nie',
+  '🤝 Dzięki za grę!',
+  '☕ Chwila przerwy',
+];
+
+const QUICK_PHRASES_ROW2 = [
   '👍 Dobra gra!',
   '👏 Brawo partnerze!',
   '🙏 Przepraszam',
   '🍀 Powodzenia!',
-  '🤝 Dzięki za partię!',
-  '☕ Chwila przerwy',
 ];
 
 const SEAT_COLORS: Record<string, string> = {
@@ -125,18 +131,32 @@ export const TableChatModal: React.FC<TableChatModalProps> = ({
           <div ref={messagesEndRef} />
         </div>
 
-        {/* Quick phrases chips */}
-        <div className="px-3 py-1.5 bg-slate-900 border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          {QUICK_PHRASES.map((phrase) => (
-            <button
-              key={phrase}
-              type="button"
-              onClick={() => onSendMessage(phrase)}
-              className="shrink-0 px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-medium transition active:scale-95 border border-slate-700/60"
-            >
-              {phrase}
-            </button>
-          ))}
+        {/* Quick phrases chips - 2 distinct rows for easy tapping on mobile */}
+        <div className="px-3 py-2 bg-slate-900 border-t border-slate-800/80 flex flex-col gap-1.5 shrink-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {QUICK_PHRASES_ROW1.map((phrase) => (
+              <button
+                key={phrase}
+                type="button"
+                onClick={() => onSendMessage(phrase)}
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 text-slate-200 text-[11px] sm:text-xs font-medium transition active:scale-95 border border-slate-700/70 shadow-sm"
+              >
+                {phrase}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+            {QUICK_PHRASES_ROW2.map((phrase) => (
+              <button
+                key={phrase}
+                type="button"
+                onClick={() => onSendMessage(phrase)}
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 text-slate-200 text-[11px] sm:text-xs font-medium transition active:scale-95 border border-slate-700/70 shadow-sm"
+              >
+                {phrase}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Input Bar */}

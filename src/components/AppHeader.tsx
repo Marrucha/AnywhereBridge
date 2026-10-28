@@ -76,8 +76,8 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         </div>
       </div>
 
-      {/* Center: Vulnerability Status */}
-      <div className="flex items-center gap-1 sm:gap-2">
+      {/* Center: Vulnerability Status (Desktop / Tablet) */}
+      <div className="hidden md:flex items-center gap-1 sm:gap-2">
         {effectiveState && <VulBadge vulnerability={effectiveState.vulnerability} />}
       </div>
 
