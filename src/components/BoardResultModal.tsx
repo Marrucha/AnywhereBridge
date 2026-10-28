@@ -134,6 +134,23 @@ export const BoardResultModal: React.FC<BoardResultModalProps> = ({
             </button>
           )}
         </div>
+
+        {/* Backup: start new 8 option even if 8 not finished */}
+        {!isEightFinished && onStartNewEight && (
+          <div className="text-center pt-1">
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Czy na pewno chcesz przerwać bieżącą ósemkę i zacząć nową od rozdania #1?')) {
+                  onStartNewEight();
+                }
+              }}
+              className="text-[10px] text-slate-400 hover:text-amber-300 underline transition"
+            >
+              Zacznij nową 8 od #1 (backup)
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

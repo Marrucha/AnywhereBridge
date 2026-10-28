@@ -247,18 +247,30 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
               </button>
             )}
 
-            {/* Button to start new 8 if 8 is complete */}
-            {scores.length > 0 && scores.length % 8 === 0 && onStartNewEight && (
+            {/* Button to start new 8 - ALWAYS available as backup or when 8 is completed */}
+            {onStartNewEight && (
               <button
                 type="button"
                 onClick={() => {
-                  onStartNewEight();
-                  onClose();
+                  if (scores.length % 8 !== 0) {
+                    if (window.confirm('Czy na pewno chcesz przerwać bieżącą ósemkę i zacząć nową od rozdania #1?')) {
+                      onStartNewEight();
+                      onClose();
+                    }
+                  } else {
+                    onStartNewEight();
+                    onClose();
+                  }
                 }}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50 transition active:scale-95"
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-bold transition active:scale-95 ${
+                  scores.length % 8 === 0
+                    ? 'text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/50'
+                    : 'text-amber-300 bg-amber-950/60 hover:bg-amber-900/80 border border-amber-600/50'
+                }`}
+                title="Rozpocznij nową ósemkę od rozdania #1"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
-                <span>🏆 Zacznij nową 8 (#1)</span>
+                <span>{scores.length % 8 === 0 ? '🏆 Zacznij nową 8 (#1)' : 'Zacznij nową 8 (#1)'}</span>
               </button>
             )}
           </div>
