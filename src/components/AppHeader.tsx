@@ -114,14 +114,15 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
         <button
           type="button"
           onClick={onOpenChat}
-          className="flex items-center gap-1 px-1.5 sm:px-2 py-1 sm:py-1.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-700 hover:border-emerald-500/50 rounded-lg text-[11px] sm:text-xs font-bold transition shadow relative"
-          title="Napisz do wszystkich przy stole"
+          className="flex items-center gap-1.5 px-1.5 sm:px-2 py-1 sm:py-1.5 bg-slate-900 hover:bg-slate-800 text-emerald-400 border border-slate-700 hover:border-emerald-500/50 rounded-lg text-[11px] sm:text-xs font-bold transition shadow relative"
+          title="Czat stołu"
         >
           <MessageSquare className="w-3.5 h-3.5" />
           <span className="hidden md:inline">Czat</span>
           {unreadChatCount > 0 && (
-            <span className="bg-emerald-500 text-slate-950 text-[9px] px-1 rounded-full font-black animate-pulse">
-              {unreadChatCount}
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-90" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400" />
             </span>
           )}
         </button>

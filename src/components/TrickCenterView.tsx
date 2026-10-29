@@ -18,6 +18,7 @@ interface TrickCenterViewProps {
   onCollectTrick?: () => void;
   onOpenResultModal: () => void;
   onOpenBiddingReview?: () => void;
+  onHideCenterBox?: () => void;
   onNextBoard?: () => void;
   onStartNewEight?: () => void;
 }
@@ -61,6 +62,7 @@ export const TrickCenterView: React.FC<TrickCenterViewProps> = ({
   onCollectTrick,
   onOpenResultModal,
   onOpenBiddingReview,
+  onHideCenterBox,
   onNextBoard,
   onStartNewEight,
 }) => {
@@ -68,8 +70,85 @@ export const TrickCenterView: React.FC<TrickCenterViewProps> = ({
     return currentTrick.cards.find(c => c.playedBy === seat);
   };
 
-  if (phase === 'BOARD_RESULT') {
-    return null;
+  if (phase === 'BOARD_RESULT' && lastResult) {
+    return (
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-[230px] sm:max-w-[280px] bg-slate-950/95 border-2 border-emerald-400/80 rounded-2xl p-2.5 sm:p-3 text-center shadow-2xl flex flex-col items-center gap-1.5 z-30"
+      >
+        <div className="text-[10px] sm:text-xs font-black uppercase tracking-wider text-emerald-400 leading-tight">
+          Rozdanie #{boardNumber} • Zakończone
+        </div>
+
+        {contract ? (
+          <div className="text-lg sm:text-xl font-black text-white leading-tight flex items-center justify-center gap-1">
+            {renderColoredContractBadge(contract)}
+            <span className="text-amber-300 text-sm sm:text-base">({lastResult.declarer})</span>
+          </div>
+        ) : (
+          <div className="text-base sm:text-lg font-black text-amber-300 leading-tight">
+            {lastResult.contractStr}
+          </div>
+        )}
+
+        <div className="text-xs sm:text-sm font-bold text-emerald-300 leading-snug">
+          {lastResult.resultDetail}
+        </div>
+
+        <div className="w-full grid grid-cols-2 gap-1.5 mt-1">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpenResultModal();
+            }}
+            className="py-1.5 px-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs shadow transition cursor-pointer flex items-center justify-center gap-1"
+          >
+            <span>📊</span>
+            <span>Protokół</span>
+          </button>
+
+          {boardNumber >= 8 && onStartNewEight ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onStartNewEight();
+              }}
+              className="py-1.5 px-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs shadow transition cursor-pointer"
+            >
+              Nowa 8-ka
+            </button>
+          ) : (
+            onNextBoard && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onNextBoard();
+                }}
+                className="py-1.5 px-2 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black text-xs shadow transition cursor-pointer"
+              >
+                Następne (#{(boardNumber % 8) + 1})
+              </button>
+            )
+          )}
+        </div>
+
+        {onHideCenterBox && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onHideCenterBox();
+            }}
+            className="w-full py-1.5 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 active:scale-95 border border-slate-600 text-amber-300 font-black text-xs shadow transition cursor-pointer"
+          >
+            Ukryj
+          </button>
+        )}
+      </div>
+    );
   }
 
   if (phase === 'PLAYING') {

@@ -235,6 +235,7 @@ class BridgeRoom {
     this.currentTurn = null;
     this.lastResult = null;
     this.history = [];
+    this.chatMessages = [];
     this.hostId = null;
     this.hands = { N: [], E: [], S: [], W: [] };
   }
@@ -423,6 +424,7 @@ function broadcastRoom(roomId) {
           undoNotice: room.undoNotice,
           lastResult: room.lastResult,
           history: room.history,
+          chatMessages: room.chatMessages || [],
           hostId: room.hostId,
         };
 
@@ -768,6 +770,32 @@ function handleMessage(ws, msg) {
 
   if (msg.type === 'clear_history') {
     room.history = [];
+    broadcastRoom(info.roomId);
+    return;
+  }
+
+  if (msg.type === 'chat') {
+    const text = (msg.text || '').trim();
+    if (!text) return;
+    const chatMsg = {
+      id: `c_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      senderName: info.playerName || msg.senderName || 'Gracz',
+      senderSeat: info.seat || msg.senderSeat || null,
+      text,
+      timestamp: Date.now(),
+    };
+    if (!room.chatMessages) room.chatMessages = [];
+    room.chatMessages.push(chatMsg);
+    if (room.chatMessages.length > 100) room.chatMessages.shift();
+
+    wss.clients.forEach(client => {
+      if (client.readyState === WebSocket.OPEN) {
+        const cInfo = clientSockets.get(client);
+        if (cInfo && cInfo.roomId === info.roomId) {
+          client.send(JSON.stringify({ type: 'chat_message', message: chatMsg }));
+        }
+      }
+    });
     broadcastRoom(info.roomId);
     return;
   }

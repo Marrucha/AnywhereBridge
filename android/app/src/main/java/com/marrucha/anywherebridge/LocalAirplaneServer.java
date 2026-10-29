@@ -62,6 +62,7 @@ public class LocalAirplaneServer extends NanoWSD {
 
     private JSONObject lastResult = null;
     private final List<JSONObject> history = new ArrayList<>();
+    private final List<JSONObject> chatMessages = new ArrayList<>();
     private String hostId = null;
     private JSONObject undoRequest = null;
     private String undoNotice = null;
@@ -437,7 +438,7 @@ public class LocalAirplaneServer extends NanoWSD {
                     if (seats.get(s) == null) {
                         JSONObject botObj = new JSONObject();
                         botObj.put("id", "bot_" + s);
-                        botObj.put("name", "🤖 Bot " + s);
+                        botObj.put("name", "Bot " + s);
                         botObj.put("connected", true);
                         botObj.put("isBot", true);
                         seats.put(s, botObj);
@@ -572,6 +573,11 @@ public class LocalAirplaneServer extends NanoWSD {
                     chatMsg.put("text", text);
                     chatMsg.put("timestamp", System.currentTimeMillis());
 
+                    chatMessages.add(chatMsg);
+                    if (chatMessages.size() > 100) {
+                        chatMessages.remove(0);
+                    }
+
                     JSONObject broadcastObj = new JSONObject();
                     broadcastObj.put("type", "chat_message");
                     broadcastObj.put("message", chatMsg);
@@ -581,6 +587,7 @@ public class LocalAirplaneServer extends NanoWSD {
                             client.send(broadcastObj.toString());
                         } catch (Exception ignored) {}
                     }
+                    broadcastState();
                 }
             }
         } catch (Exception e) {
@@ -1337,6 +1344,11 @@ public class LocalAirplaneServer extends NanoWSD {
                 JSONArray histArr = new JSONArray();
                 for (JSONObject h : history) histArr.put(h);
                 s.put("history", histArr);
+
+                JSONArray chatArr = new JSONArray();
+                for (JSONObject cm : chatMessages) chatArr.put(cm);
+                s.put("chatMessages", chatArr);
+
                 s.put("hostId", hostId != null ? hostId : JSONObject.NULL);
 
                 root.put("state", s);

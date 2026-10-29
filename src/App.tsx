@@ -75,10 +75,23 @@ export const App: React.FC = () => {
   const [isConnectionOpen, setIsConnectionOpen] = useState(false);
   const [isPlayersOpen, setIsPlayersOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const isChatOpenRef = useRef(false);
+  isChatOpenRef.current = isChatOpen;
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [latestChatMessage, setLatestChatMessage] = useState<ChatMessage | null>(null);
   const chatBubbleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const triggerChatPopup = (msg: ChatMessage) => {
+    setLatestChatMessage(msg);
+    if (chatBubbleTimeoutRef.current) clearTimeout(chatBubbleTimeoutRef.current);
+    chatBubbleTimeoutRef.current = setTimeout(() => {
+      setLatestChatMessage(null);
+      if (!isChatOpenRef.current) {
+        setUnreadChatCount((prev) => prev + 1);
+      }
+    }, 2000);
+  };
   const [localScores, setLocalScores] = useState<ScoreRecord[]>(() => getStoredScores());
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -196,15 +209,20 @@ export const App: React.FC = () => {
                 const updated = saveScoreRecord(msg.state.lastResult);
                 setLocalScores(updated);
               }
+              if (msg.state.chatMessages && Array.isArray(msg.state.chatMessages)) {
+                setChatMessages((prev) => {
+                  const map = new Map<string, ChatMessage>();
+                  prev.forEach((m) => map.set(m.id, m));
+                  msg.state.chatMessages!.forEach((m) => map.set(m.id, m));
+                  return Array.from(map.values()).sort((a, b) => a.timestamp - b.timestamp);
+                });
+              }
             } else if (msg.type === 'room_reset') {
               setMySeat(null);
               saveStoredSeat(null);
             } else if (msg.type === 'chat_message') {
-              setChatMessages((prev) => [...prev, msg.message]);
-              setLatestChatMessage(msg.message);
-              setUnreadChatCount((prev) => (isChatOpen ? 0 : prev + 1));
-              if (chatBubbleTimeoutRef.current) clearTimeout(chatBubbleTimeoutRef.current);
-              chatBubbleTimeoutRef.current = setTimeout(() => setLatestChatMessage(null), 5000);
+              setChatMessages((prev) => (prev.some((m) => m.id === msg.message.id) ? prev : [...prev, msg.message]));
+              triggerChatPopup(msg.message);
             }
           } catch (e) {
             console.error('Error handling WS message:', e);
@@ -331,7 +349,7 @@ export const App: React.FC = () => {
       timestamp: Date.now(),
     };
 
-    if (connected && wsRef.current) {
+    if (connected && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       sendMessage({
         type: 'chat',
         text,
@@ -340,14 +358,12 @@ export const App: React.FC = () => {
       });
     } else {
       setChatMessages((prev) => [...prev, msg]);
-      setLatestChatMessage(msg);
-      if (chatBubbleTimeoutRef.current) clearTimeout(chatBubbleTimeoutRef.current);
-      chatBubbleTimeoutRef.current = setTimeout(() => setLatestChatMessage(null), 5000);
+      triggerChatPopup(msg);
 
       if (isBotGame) {
         setTimeout(() => {
           const botReplies = [
-            { seat: 'N' as Seat, name: 'Bot N (Partner)', text: 'Gramy dalej! 👍' },
+            { seat: 'N' as Seat, name: 'Bot N', text: 'Gramy dalej! 👍' },
             { seat: 'W' as Seat, name: 'Bot W', text: 'Powodzenia przy stole! 🍀' },
             { seat: 'E' as Seat, name: 'Bot E', text: 'Dobra partia! 👏' },
           ];
@@ -360,10 +376,7 @@ export const App: React.FC = () => {
             timestamp: Date.now(),
           };
           setChatMessages((prev) => [...prev, botMsg]);
-          setLatestChatMessage(botMsg);
-          setUnreadChatCount((prev) => (isChatOpen ? 0 : prev + 1));
-          if (chatBubbleTimeoutRef.current) clearTimeout(chatBubbleTimeoutRef.current);
-          chatBubbleTimeoutRef.current = setTimeout(() => setLatestChatMessage(null), 5000);
+          triggerChatPopup(botMsg);
         }, 1100);
       }
     }
@@ -413,7 +426,8 @@ export const App: React.FC = () => {
             onCollectTrick={handleCollectTrick} onNextBoard={handleNextBoard}
             onResetRoom={handleResetRoom} onOpenQR={() => setIsQROpen(true)}
             onOpenScores={() => setIsScoreOpen(true)}
-            onOpenChat={() => { setIsChatOpen(true); setUnreadChatCount(0); }}
+            onOpenChat={() => { setIsChatOpen(true); setUnreadChatCount(0); setLatestChatMessage(null); }}
+            unreadChatCount={unreadChatCount}
             latestChatMessage={latestChatMessage}
             onRequestUndo={handleRequestUndo} onRespondUndo={handleRespondUndo}
             onStartBotGame={() => startBotGame(mySeat || 'S', (localScores.length % 8) + 1)}

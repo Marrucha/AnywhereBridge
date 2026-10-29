@@ -38,6 +38,7 @@ interface BridgeTableProps {
   onStartNewEight?: () => void;
   onOpenScores?: () => void;
   onOpenChat?: () => void;
+  unreadChatCount?: number;
   latestChatMessage?: ChatMessage | null;
   onRequestUndo?: () => void;
   onRespondUndo?: (accept: boolean) => void;
@@ -70,6 +71,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   onStartNewEight,
   onOpenScores,
   onOpenChat,
+  unreadChatCount = 0,
   latestChatMessage = null,
   onRequestUndo,
   onRespondUndo,
@@ -141,11 +143,15 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
   const [showResultModal, setShowResultModal] = React.useState(false);
   const [showBiddingModal, setShowBiddingModal] = React.useState(false);
+  const [hideResultCenterBox, setHideResultCenterBox] = React.useState(false);
 
   React.useEffect(() => {
-    if (phase !== 'BOARD_RESULT') setShowResultModal(false);
+    if (phase !== 'BOARD_RESULT') {
+      setShowResultModal(false);
+      setHideResultCenterBox(false);
+    }
     if (phase === 'BIDDING' || phase === 'LOBBY') setShowBiddingModal(false);
-  }, [phase]);
+  }, [phase, state.boardNumber]);
 
   const bottomHandToDisplay =
     phase === 'BOARD_RESULT'
@@ -189,6 +195,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           leadCardSuit={null}
           onPlayCard={() => {}}
           seatName={getCleanPlayerName(sideSeat)}
+          expanded={phase === 'BOARD_RESULT' && hideResultCenterBox}
         />
       );
     }
@@ -198,8 +205,8 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   return (
     <div
       onClick={() => {
-        if (phase === 'BOARD_RESULT' && !showResultModal) {
-          setShowResultModal(true);
+        if (phase === 'BOARD_RESULT' && hideResultCenterBox) {
+          setHideResultCenterBox(false);
         } else if (phase === 'PLAYING' && currentTrick.cards.length === 4 && onCollectTrick) {
           onCollectTrick();
         }
@@ -233,19 +240,6 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           ddsResult={ddsResult} ddsLoading={ddsLoading} onClose={() => setShowResultModal(false)}
           onNextBoard={onNextBoard} onStartNewEight={onStartNewEight} onOpenScores={onOpenScores}
         />
-      )}
-
-      {/* RESULT BANNER (When table is previewed after board finishes) */}
-      {phase === 'BOARD_RESULT' && lastResult && !showResultModal && (
-        <div
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowResultModal(true);
-          }}
-          className="bg-emerald-600/95 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-xl text-center cursor-pointer transition shadow-lg border border-emerald-400/60 mb-0.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-black shrink-0"
-        >
-          <span>↩️ Powrót do protokołu (Podsumowanie rozdania #{state.boardNumber})</span>
-        </div>
       )}
 
       {/* MAIN LAYOUT: Column in Portrait, Row in Landscape (Left 3/4 square play area + Right 1/4 controls box) */}
@@ -331,7 +325,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
           {/* MIDDLE SECTION: LEFT OPPONENT (leftSeat), TALL SQUARE-ISH FELT TABLE, RIGHT OPPONENT (rightSeat) */}
           <div className="flex-1 min-h-0 flex items-center justify-center my-0.5 relative z-10">
-            {phase === 'BOARD_RESULT' ? (
+            {phase === 'BOARD_RESULT' && hideResultCenterBox ? (
               <div className="w-full h-full grid grid-cols-2 gap-1.5 sm:gap-3 items-center px-1">
                 {renderSideSeat(leftSeat)}
                 {renderSideSeat(rightSeat)}
@@ -385,6 +379,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
                     leftSeat={leftSeat} rightSeat={rightSeat} onCollectTrick={onCollectTrick}
                     onOpenResultModal={() => setShowResultModal(true)}
                     onOpenBiddingReview={() => setShowBiddingModal(true)}
+                    onHideCenterBox={() => setHideResultCenterBox(true)}
                     onNextBoard={onNextBoard} onStartNewEight={onStartNewEight}
                   />
                 </div>
@@ -398,8 +393,20 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
           {/* BOTTOM SECTION: MY SEAT (bottomSeat) / PORTRAIT BIDDING CONTROLS & MY HAND */}
           <div className="relative z-30 flex flex-col items-center w-full space-y-0.5 shrink-0">
-            <div className="landscape:hidden shrink-0">
+            <div className="landscape:hidden shrink-0 flex items-center gap-2">
               {renderSeatBadge(bottomSeat)}
+              {phase === 'BOARD_RESULT' && hideResultCenterBox && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setHideResultCenterBox(false);
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-black text-xs border-2 border-emerald-300 shadow-lg cursor-pointer"
+                >
+                  Pokaż wynik
+                </button>
+              )}
             </div>
 
             {phase === 'BIDDING' && (
@@ -434,22 +441,23 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           mySeat={mySeat} bottomSeat={bottomSeat} isUndoPending={isUndoPending}
           canUndoMove={canUndoMove} contract={contract} tricksWonNS={tricksWonNS}
           tricksWonEW={tricksWonEW} effectiveTurn={effectiveTurn} onMakeBid={onMakeBid}
-          onRequestUndo={onRequestUndo} onOpenChat={onOpenChat} onOpenScores={onOpenScores}
+          onRequestUndo={onRequestUndo} onOpenChat={onOpenChat} unreadChatCount={unreadChatCount}
+          onOpenScores={onOpenScores}
           onOpenBiddingReview={() => setShowBiddingModal(true)}
         />
       </div>
 
-      {/* FLOATING RECENT CHAT BUBBLE OVER TABLE */}
+      {/* 2-SECOND CHAT POPUP OVER TABLE */}
       {latestChatMessage && (
         <div
           onClick={(e) => {
             e.stopPropagation();
             if (onOpenChat) onOpenChat();
           }}
-          className="absolute bottom-20 left-3 sm:left-6 z-30 max-w-[220px] sm:max-w-xs bg-slate-900/95 border border-emerald-400 text-white px-3 py-1.5 rounded-2xl shadow-2xl text-[11px] sm:text-xs flex items-center gap-1.5 cursor-pointer animate-scaleUp hover:bg-slate-800 transition"
+          className="absolute top-12 left-1/2 -translate-x-1/2 z-50 max-w-[92vw] sm:max-w-md bg-slate-950/95 border-2 border-emerald-400 text-white px-4 py-2.5 rounded-2xl shadow-2xl text-sm sm:text-base flex items-center gap-2 cursor-pointer animate-scaleUp hover:bg-slate-900 transition"
         >
-          <span className="text-emerald-400 font-bold shrink-0">💬 {latestChatMessage.senderName}:</span>
-          <span className="truncate text-slate-200">{latestChatMessage.text}</span>
+          <span className="text-emerald-400 font-black shrink-0">💬 {latestChatMessage.senderName}:</span>
+          <span className="font-bold text-white break-words">{latestChatMessage.text}</span>
         </div>
       )}
     </div>

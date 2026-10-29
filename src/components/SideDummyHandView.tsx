@@ -11,6 +11,7 @@ interface SideDummyHandViewProps {
   leadCardSuit?: string | null;
   onPlayCard?: (cardId: string) => void;
   seatName?: string;
+  expanded?: boolean;
 }
 
 const SUIT_SYMBOLS: Record<Suit, string> = {
@@ -39,6 +40,7 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
   leadCardSuit = null,
   onPlayCard,
   seatName,
+  expanded = false,
 }) => {
   if (!dummyHand || dummyHand.length === 0) return null;
 
@@ -62,7 +64,11 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
   });
 
   return (
-    <div className="flex flex-col gap-1 bg-slate-950/90 border-2 border-amber-400/80 rounded-xl p-1 sm:p-1.5 shadow-2xl w-full min-w-0 animate-fadeIn overflow-hidden">
+    <div
+      className={`flex flex-col gap-1 bg-slate-950/90 border-2 border-amber-400/80 rounded-xl p-1 sm:p-1.5 shadow-2xl animate-fadeIn overflow-hidden ${
+        expanded ? 'w-full min-w-0' : 'w-[92px] sm:w-[132px] shrink-0'
+      }`}
+    >
       {/* Header */}
       <div className="text-center pb-0.5 border-b border-slate-700/80 leading-tight flex flex-col items-center justify-center">
         <span className="text-sm sm:text-base font-black text-white leading-none">{dummySeat}</span>
@@ -73,7 +79,7 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
         )}
       </div>
 
-      {/* 4 Suits rendered with full-size player cards ("player" - exact same size as S!) */}
+      {/* 4 Suits: when expanded (after clicking "Ukryj"), render with full-size player cards ("player" - same as S) */}
       <div className="flex flex-col gap-1 pt-0.5">
         {suitsOrder.map((suit, sIdx) => {
           const cards = cardsBySuit[suit];
@@ -81,7 +87,11 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
           return (
             <div
               key={suit}
-              className={`flex items-center min-w-0 ${sIdx > 0 ? '-mt-7 land:-mt-8 sm:-mt-5' : ''}`}
+              className={`flex items-center min-w-0 ${
+                expanded
+                  ? sIdx > 0 ? '-mt-7 land:-mt-8 sm:-mt-5' : ''
+                  : sIdx > 0 ? '-mt-4 sm:-mt-3' : ''
+              }`}
               style={{ zIndex: sIdx + 1 }}
             >
               <div className="flex items-center w-full overflow-visible">
@@ -93,14 +103,18 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
                       key={card.id}
                       style={{ zIndex: idx + 1 }}
                       className={
-                        isLast
-                          ? 'relative w-[60px] land:w-[50px] desk:w-[76px] shrink-0 flex justify-start'
-                          : 'relative flex-1 min-w-0 max-w-[34px] land:max-w-[30px] desk:max-w-[48px] flex justify-start overflow-visible'
+                        expanded
+                          ? isLast
+                            ? 'relative w-[60px] land:w-[50px] desk:w-[76px] shrink-0 flex justify-start'
+                            : 'relative flex-1 min-w-0 max-w-[34px] land:max-w-[30px] desk:max-w-[48px] flex justify-start overflow-visible'
+                          : isLast
+                            ? 'relative w-[36px] sm:w-[44px] shrink-0 flex justify-start'
+                            : 'relative flex-1 min-w-0 max-w-[16px] sm:max-w-[22px] flex justify-start overflow-visible'
                       }
                     >
                       <CardView
                         card={card}
-                        size="player"
+                        size={expanded ? 'player' : 'sm'}
                         isPlayable={isPlayable}
                         isHighlighted={isPlayable}
                         onClick={() => {

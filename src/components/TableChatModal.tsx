@@ -75,8 +75,8 @@ export const TableChatModal: React.FC<TableChatModalProps> = ({
               <MessageSquare className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-white">Czat Stołu Brydżowego</h2>
-              <p className="text-[11px] text-slate-400">Wiadomości widoczne dla wszystkich przy stole</p>
+              <h2 className="text-base sm:text-lg font-black text-white">Czat Stołu Brydżowego</h2>
+              <p className="text-xs text-slate-400">Wiadomości widoczne dla wszystkich przy stole</p>
             </div>
           </div>
           <button
@@ -89,12 +89,12 @@ export const TableChatModal: React.FC<TableChatModalProps> = ({
         </div>
 
         {/* Messages Feed */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2.5 bg-slate-950/40">
+        <div className="flex-1 overflow-y-auto p-3 space-y-3 bg-slate-950/40">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center text-slate-500 p-4">
               <MessageSquare className="w-8 h-8 mb-2 opacity-40 text-emerald-400" />
-              <p className="text-xs">Brak wiadomości przy stole.</p>
-              <p className="text-[11px] text-slate-600 mt-0.5">Napisz coś do pozostałych graczy poniżej.</p>
+              <p className="text-sm font-semibold">Brak wiadomości przy stole.</p>
+              <p className="text-xs text-slate-500 mt-0.5">Napisz coś do pozostałych graczy poniżej.</p>
             </div>
           ) : (
             messages.map((msg) => {
@@ -104,19 +104,19 @@ export const TableChatModal: React.FC<TableChatModalProps> = ({
                   key={msg.id}
                   className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                 >
-                  <div className="flex items-center gap-1.5 mb-0.5 text-[10px] text-slate-400">
+                  <div className="flex items-center gap-1.5 mb-1 text-xs sm:text-sm text-slate-300">
                     {msg.senderSeat && (
-                      <span className={`px-1 rounded border text-[9px] font-black ${SEAT_COLORS[msg.senderSeat] || 'bg-slate-800 text-slate-300'}`}>
+                      <span className={`px-1.5 py-0.5 rounded border text-xs font-black ${SEAT_COLORS[msg.senderSeat] || 'bg-slate-800 text-slate-300'}`}>
                         {msg.senderSeat}
                       </span>
                     )}
-                    <span className="font-semibold text-slate-300">{msg.senderName}</span>
-                    <span className="text-[9px] text-slate-500">
+                    <span className="font-bold text-slate-200">{msg.senderName}</span>
+                    <span className="text-[11px] text-slate-400">
                       {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </span>
                   </div>
                   <div
-                    className={`max-w-[85%] px-3 py-1.5 rounded-2xl text-xs sm:text-sm font-medium shadow break-words ${
+                    className={`max-w-[88%] px-3.5 py-2 rounded-2xl text-sm sm:text-base font-bold shadow break-words ${
                       isMe
                         ? 'bg-emerald-600 text-white rounded-tr-sm'
                         : 'bg-slate-800 text-slate-100 border border-slate-700/80 rounded-tl-sm'
@@ -139,7 +139,7 @@ export const TableChatModal: React.FC<TableChatModalProps> = ({
                 key={phrase}
                 type="button"
                 onClick={() => onSendMessage(phrase)}
-                className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 text-slate-200 text-[11px] sm:text-xs font-medium transition active:scale-95 border border-slate-700/70 shadow-sm"
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 text-slate-100 text-xs sm:text-sm font-bold transition active:scale-95 border border-slate-700/70 shadow-sm"
               >
                 {phrase}
               </button>
@@ -151,7 +151,7 @@ export const TableChatModal: React.FC<TableChatModalProps> = ({
                 key={phrase}
                 type="button"
                 onClick={() => onSendMessage(phrase)}
-                className="shrink-0 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 text-slate-200 text-[11px] sm:text-xs font-medium transition active:scale-95 border border-slate-700/70 shadow-sm"
+                className="shrink-0 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-emerald-600 text-slate-100 text-xs sm:text-sm font-bold transition active:scale-95 border border-slate-700/70 shadow-sm"
               >
                 {phrase}
               </button>
@@ -168,13 +168,13 @@ export const TableChatModal: React.FC<TableChatModalProps> = ({
             onKeyDown={handleKeyDown}
             placeholder="Napisz do wszystkich przy stole..."
             maxLength={160}
-            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
+            className="flex-1 bg-slate-800 border border-slate-700 rounded-xl px-3.5 py-2.5 text-sm sm:text-base font-medium text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
           />
           <button
             type="button"
             onClick={handleSend}
             disabled={!inputText.trim()}
-            className="p-2 sm:px-3 sm:py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white rounded-xl transition shadow flex items-center justify-center gap-1 font-bold text-xs"
+            className="p-2.5 sm:px-4 sm:py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:hover:bg-emerald-600 text-white rounded-xl transition shadow flex items-center justify-center gap-1.5 font-black text-sm"
           >
             <Send className="w-4 h-4" />
             <span className="hidden sm:inline">Wyślij</span>

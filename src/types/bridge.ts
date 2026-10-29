@@ -126,6 +126,7 @@ export interface RoomState {
 
   lastResult: ScoreRecord | null;
   history: ScoreRecord[];
+  chatMessages?: ChatMessage[];
   hostId: string | null;
 }
 

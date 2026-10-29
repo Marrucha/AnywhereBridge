@@ -24,6 +24,7 @@ interface LandscapeSidePanelProps {
   onMakeBid: (bid: { type: 'BID' | 'PASS' | 'DOUBLE' | 'REDOUBLE'; level?: number; suit?: any }) => void;
   onRequestUndo?: () => void;
   onOpenChat?: () => void;
+  unreadChatCount?: number;
   onOpenScores?: () => void;
   onOpenBiddingReview?: () => void;
 }
@@ -46,6 +47,7 @@ export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
   onMakeBid,
   onRequestUndo,
   onOpenChat,
+  unreadChatCount = 0,
   onOpenScores,
   onOpenBiddingReview,
 }) => {
@@ -111,10 +113,16 @@ export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
             e.stopPropagation();
             if (onOpenChat) onOpenChat();
           }}
-          className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 border-2 border-slate-700 transition shadow-md cursor-pointer"
+          className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 border-2 border-slate-700 transition shadow-md cursor-pointer relative"
         >
           <MessageSquare className="w-4 h-4 shrink-0" />
           <span>Czat</span>
+          {unreadChatCount > 0 && (
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-90" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-400" />
+            </span>
+          )}
         </button>
       </div>
 
