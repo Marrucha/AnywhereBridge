@@ -2,7 +2,7 @@ import React from 'react';
 import { Card, ChatMessage, Contract, PlayedCard, RoomState, Seat, Trick } from '../types/bridge';
 import { CardView } from './CardView';
 import { BiddingBox } from './BiddingBox';
-import { BiddingTray } from './BiddingTray';
+import { BiddingTray, BiddingReviewModal } from './BiddingTray';
 import { BoardResultModal } from './BoardResultModal';
 import { DummyHandView } from './DummyHandView';
 import { SideDummyHandView } from './SideDummyHandView';
@@ -140,11 +140,11 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   const unseatedList = connectedPlayers.filter(p => !p.seat);
 
   const [showResultModal, setShowResultModal] = React.useState(false);
+  const [showBiddingModal, setShowBiddingModal] = React.useState(false);
 
   React.useEffect(() => {
-    if (phase !== 'BOARD_RESULT') {
-      setShowResultModal(false);
-    }
+    if (phase !== 'BOARD_RESULT') setShowResultModal(false);
+    if (phase === 'BIDDING' || phase === 'LOBBY') setShowBiddingModal(false);
   }, [phase]);
 
   const bottomHandToDisplay =
@@ -200,10 +200,13 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
     >
       {/* UNDO REQUEST MODAL & NOTICE TOAST */}
       <UndoRequestBanner
-        undoRequest={state.undoRequest}
-        undoNotice={state.undoNotice}
-        mySeat={mySeat}
-        onRespondUndo={onRespondUndo}
+        undoRequest={state.undoRequest} undoNotice={state.undoNotice}
+        mySeat={mySeat} onRespondUndo={onRespondUndo}
+      />
+
+      <BiddingReviewModal
+        isOpen={showBiddingModal} onClose={() => setShowBiddingModal(false)}
+        boardNumber={state.boardNumber} dealer={dealer} bids={bids}
       />
 
       {phase === 'LOBBY' && (
@@ -402,6 +405,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
                     seatNames={SEAT_NAMES} topSeat={topSeat} bottomSeat={bottomSeat}
                     leftSeat={leftSeat} rightSeat={rightSeat} onCollectTrick={onCollectTrick}
                     onOpenResultModal={() => setShowResultModal(true)}
+                    onOpenBiddingReview={() => setShowBiddingModal(true)}
                     onNextBoard={onNextBoard} onStartNewEight={onStartNewEight}
                   />
                 </div>
@@ -467,6 +471,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           canUndoMove={canUndoMove} contract={contract} tricksWonNS={tricksWonNS}
           tricksWonEW={tricksWonEW} effectiveTurn={effectiveTurn} onMakeBid={onMakeBid}
           onRequestUndo={onRequestUndo} onOpenChat={onOpenChat} onOpenScores={onOpenScores}
+          onOpenBiddingReview={() => setShowBiddingModal(true)}
         />
       </div>
 

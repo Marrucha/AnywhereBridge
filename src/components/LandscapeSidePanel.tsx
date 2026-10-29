@@ -25,6 +25,7 @@ interface LandscapeSidePanelProps {
   onRequestUndo?: () => void;
   onOpenChat?: () => void;
   onOpenScores?: () => void;
+  onOpenBiddingReview?: () => void;
 }
 
 export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
@@ -46,6 +47,7 @@ export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
   onRequestUndo,
   onOpenChat,
   onOpenScores,
+  onOpenBiddingReview,
 }) => {
   if (phase !== 'BIDDING' && phase !== 'PLAYING' && phase !== 'BOARD_RESULT') {
     return null;
@@ -142,10 +144,18 @@ export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
               Rozdanie #{boardNumber} • {formatVulnerabilityPl(vulnerability)}
             </div>
             {contract && (
-              <div className="mt-0.5 flex items-center justify-center gap-1.5">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onOpenBiddingReview) onOpenBiddingReview();
+                }}
+                title="Kliknij, aby przypomnieć przebieg licytacji"
+                className="mt-0.5 w-full flex items-center justify-center gap-1.5 py-0.5 rounded-lg hover:bg-slate-800/80 active:scale-95 cursor-pointer transition"
+              >
                 {renderColoredContract(contract)}
                 <span className="text-xs font-bold text-amber-400">({contract.declarer})</span>
-              </div>
+              </button>
             )}
             {phase === 'PLAYING' && effectiveTurn && (
               <div className="mt-1 inline-block px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-[10px] font-extrabold text-amber-300">

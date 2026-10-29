@@ -4,6 +4,7 @@ import { Bid, Seat } from '../types/bridge';
 interface BiddingTrayProps {
   dealer: Seat;
   bids: Bid[];
+  isBiddingActive?: boolean;
 }
 
 const BLACK_SPADE_STYLE: React.CSSProperties = {
@@ -21,7 +22,7 @@ const SUIT_ICONS: Record<string, { symbol: string; color: string; style?: React.
 
 type TrayCell = Bid | null | 'ACTIVE';
 
-export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids }) => {
+export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids, isBiddingActive = true }) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
   // 4 columns: N, E, S, W
@@ -36,8 +37,10 @@ export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids }) => {
   for (const b of bids) {
     paddedBids.push(b);
   }
-  // Always append the active slot for the current bidder so the next row (e.g. 2nd row after 4th column bids) appears immediately!
-  paddedBids.push('ACTIVE');
+  // Always append the active slot for the current bidder during active bidding so the next row appears immediately!
+  if (isBiddingActive) {
+    paddedBids.push('ACTIVE');
+  }
 
   // Split into rows of 4
   const rows: TrayCell[][] = [];
@@ -130,6 +133,53 @@ export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids }) => {
             {[0, 1, 2, 3].map(cIdx => renderBidCell(row[cIdx], cIdx))}
           </div>
         ))}
+      </div>
+    </div>
+  );
+};
+
+export const BiddingReviewModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  boardNumber: number;
+  dealer: Seat;
+  bids: Bid[];
+}> = ({ isOpen, onClose, boardNumber, dealer, bids }) => {
+  if (!isOpen) return null;
+  return (
+    <div
+      onClick={(e) => {
+        e.stopPropagation();
+        onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/75 backdrop-blur-sm animate-fadeIn"
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-slate-900 border-2 border-amber-400 rounded-2xl p-4 w-full max-w-sm shadow-2xl space-y-3 text-center"
+      >
+        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+          <span className="text-sm font-black uppercase tracking-wider text-amber-400">
+            Przebieg licytacji • Rozdanie #{boardNumber}
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-2 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold"
+          >
+            ✕
+          </button>
+        </div>
+
+        <BiddingTray dealer={dealer} bids={bids} isBiddingActive={false} />
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 font-black text-xs sm:text-sm shadow transition"
+        >
+          Zamknij
+        </button>
       </div>
     </div>
   );

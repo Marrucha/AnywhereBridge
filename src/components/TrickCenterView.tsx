@@ -17,6 +17,7 @@ interface TrickCenterViewProps {
   rightSeat?: Seat;
   onCollectTrick?: () => void;
   onOpenResultModal: () => void;
+  onOpenBiddingReview?: () => void;
   onNextBoard?: () => void;
   onStartNewEight?: () => void;
 }
@@ -59,6 +60,7 @@ export const TrickCenterView: React.FC<TrickCenterViewProps> = ({
   rightSeat = 'E',
   onCollectTrick,
   onOpenResultModal,
+  onOpenBiddingReview,
   onNextBoard,
   onStartNewEight,
 }) => {
@@ -73,12 +75,20 @@ export const TrickCenterView: React.FC<TrickCenterViewProps> = ({
   if (phase === 'PLAYING') {
     return (
       <div className="relative flex-1 w-full h-full min-w-[200px] max-w-[360px] desk:max-w-[440px] flex items-center justify-center">
-        {/* Top-left compact Contract badge in Portrait (in Landscape it is in the right-side box) */}
+        {/* Top-left compact Contract badge in Portrait - click to open Bidding Review popup! */}
         {contract && (
-          <div className="landscape:hidden absolute top-1 left-1 z-10 bg-slate-950/90 border border-amber-400/80 text-amber-300 px-2 py-0.5 rounded-lg shadow font-black flex items-center gap-1 pointer-events-none">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onOpenBiddingReview) onOpenBiddingReview();
+            }}
+            title="Kliknij, aby przypomnieć przebieg licytacji"
+            className="landscape:hidden absolute top-1 left-1 z-30 bg-slate-950/90 hover:bg-slate-900 active:scale-95 border border-amber-400/80 text-amber-300 px-2.5 py-0.5 rounded-lg shadow font-black flex items-center gap-1 cursor-pointer transition"
+          >
             <span className="text-sm sm:text-base font-black">{renderColoredContractBadge(contract)}</span>
             <span className="text-amber-400 text-[10px] font-bold">({contract.declarer})</span>
-          </div>
+          </button>
         )}
 
         {/* Top (Partner) Card */}
