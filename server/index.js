@@ -109,7 +109,29 @@ function formatContract(contract) {
   return `${contract.level}${sym[contract.suit] || contract.suit}${dStr}`;
 }
 
-function calculateScore(contract, tricksWonNS, tricksWonEW, vulnerability) {
+function calcHandHcp(hand) {
+  if (!hand) return 0;
+  let s = 0;
+  for (const c of hand) {
+    if (c.rank === 'A') s += 4;
+    else if (c.rank === 'K') s += 3;
+    else if (c.rank === 'Q') s += 2;
+    else if (c.rank === 'J') s += 1;
+  }
+  return s;
+}
+
+function convertDiffToImp(diff) {
+  const a = Math.abs(diff);
+  const table = [10, 40, 80, 120, 160, 210, 260, 310, 360, 420, 490, 590, 740, 890, 1090, 1290, 1490, 1740, 1990, 2240, 2490, 2990, 3490, 3990];
+  let imp = 24;
+  for (let i = 0; i < table.length; i++) {
+    if (a <= table[i]) { imp = i; break; }
+  }
+  return diff >= 0 ? imp : -imp;
+}
+
+function calculateScore(contract, tricksWonNS, tricksWonEW, vulnerability, dealHands) {
   const side = getPartnership(contract.declarer);
   const isVul = isSideVulnerable(side, vulnerability);
   const tricksWon = side === 'NS' ? tricksWonNS : tricksWonEW;
@@ -173,9 +195,23 @@ function calculateScore(contract, tricksWonNS, tricksWonEW, vulnerability) {
   const scoreEW = side === 'EW' ? totalScore : -totalScore;
   const diffStr = diff === 0 ? '=' : diff > 0 ? `+${diff}` : `${diff}`;
   const cStr = formatContract(contract);
-  const resultDetail = `${cStr} ${diffStr} by ${contract.declarer} (${totalScore >= 0 ? '+' : ''}${totalScore})`;
+  const baseDetail = `${cStr} ${diffStr} (${totalScore >= 0 ? '+' : ''}${totalScore})`;
 
-  return { totalScore, scoreNS, scoreEW, resultDetail };
+  const hcpNS = dealHands ? calcHandHcp(dealHands.N) + calcHandHcp(dealHands.S) : 20;
+  const hcpEW = 40 - hcpNS;
+  const majorityHcp = Math.max(hcpNS, hcpEW);
+  const majorityVul = hcpNS >= 20 ? isSideVulnerable('NS', vulnerability) : isSideVulnerable('EW', vulnerability);
+  const clamped = Math.min(37, Math.max(20, majorityHcp));
+  const nonVulTable = [0, 50, 70, 110, 200, 300, 350, 400, 430, 460, 490, 600, 700, 900, 1000, 1100, 1200, 1400];
+  const vulTable = [0, 50, 70, 110, 290, 440, 520, 600, 630, 660, 690, 800, 1050, 1350, 1500, 1650, 1800, 2100];
+  const expPts = majorityVul ? vulTable[clamped - 20] : nonVulTable[clamped - 20];
+  const expectedScoreNS = hcpNS >= 20 ? expPts : -expPts;
+  const impNS = convertDiffToImp(scoreNS - expectedScoreNS);
+  const impEW = -impNS;
+  const impStr = impNS > 0 ? `+${impNS} IMP` : `${impNS} IMP`;
+  const resultDetail = `${baseDetail} • ${impStr} (PC: ${hcpNS}-${hcpEW})`;
+
+  return { totalScore, scoreNS, scoreEW, resultDetail, hcpNS, hcpEW, expectedScoreNS, impNS, impEW };
 }
 
 function determineWinner(trick, trumpSuit) {
@@ -239,6 +275,7 @@ class BridgeRoom {
     this.chatMessages = [];
     this.hostId = null;
     this.hands = { N: [], E: [], S: [], W: [] };
+    this.dealHands = { N: [], E: [], S: [], W: [] };
   }
 
   setupBoard(boardNumber) {
@@ -248,6 +285,12 @@ class BridgeRoom {
     this.dealer = setup.dealer;
     this.vulnerability = setup.vulnerability;
     this.hands = createAndDealDeck();
+    this.dealHands = {
+      N: [...this.hands.N],
+      E: [...this.hands.E],
+      S: [...this.hands.S],
+      W: [...this.hands.W],
+    };
     this.bids = [];
     this.currentBidder = this.dealer;
     this.contract = null;
@@ -410,6 +453,7 @@ function broadcastRoom(roomId) {
           seats: room.seats,
           myHand,
           dummyHand,
+          dealHands: room.phase === 'BOARD_RESULT' ? room.dealHands : undefined,
           dummySeat: room.dummySeat,
           declarerSeat: room.declarerSeat,
           openingLeadMade: room.openingLeadMade,
@@ -533,13 +577,19 @@ function handleMessage(ws, msg) {
   }
 
   if (msg.type === 'chat') {
+    const text = (msg.text || '').trim();
+    if (!text) return;
     const chatMsg = {
       id: `c_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       senderName: msg.senderName || info.playerName || 'Gracz',
       senderSeat: msg.senderSeat || info.seat || 'S',
-      text: msg.text || '',
+      text,
       timestamp: Date.now(),
     };
+    if (!room.chatMessages) room.chatMessages = [];
+    room.chatMessages.push(chatMsg);
+    if (room.chatMessages.length > 100) room.chatMessages.shift();
+
     wss.clients.forEach(client => {
       if (client.readyState === WebSocket.OPEN) {
         const cInfo = clientSockets.get(client);
@@ -548,6 +598,7 @@ function handleMessage(ws, msg) {
         }
       }
     });
+    broadcastRoom(info.roomId);
     return;
   }
 
@@ -663,9 +714,9 @@ function handleMessage(ws, msg) {
     }
 
     // Check if player is allowed to play:
-    // It's their own turn, OR they are declarer playing dummy's card on dummy's turn!
+    // It's their own turn, OR they are declarer/dummy playing dummy's card on dummy's turn!
     const isMyTurn = room.currentTurn === info.seat;
-    const isDummyTurn = room.currentTurn === room.dummySeat && room.declarerSeat === info.seat;
+    const isDummyTurn = room.currentTurn === room.dummySeat && (room.declarerSeat === info.seat || room.dummySeat === info.seat);
 
     if (!isMyTurn && !isDummyTurn) return;
 
@@ -675,6 +726,14 @@ function handleMessage(ws, msg) {
 
     if (cardIndex === -1) return;
     const playedCard = activeHand[cardIndex];
+
+    // Validate following suit
+    if (room.currentTrick.cards.length > 0) {
+      const leadSuit = room.currentTrick.cards[0].card.suit;
+      if (playedCard.suit !== leadSuit && activeHand.some(c => c.suit === leadSuit)) {
+        return; // Must follow suit!
+      }
+    }
 
     // Remove card from hand
     activeHand.splice(cardIndex, 1);
@@ -689,10 +748,7 @@ function handleMessage(ws, msg) {
     if (room.currentTrick.cards.length === 4) {
       const winnerSeat = determineWinner(room.currentTrick, room.contract.suit);
       room.currentTrick.winnerSeat = winnerSeat;
-      room.pastTricks.push({ ...room.currentTrick });
-
-      if (winnerSeat === 'N' || winnerSeat === 'S') room.tricksWonNS += 1;
-      else room.tricksWonEW += 1;
+      room.currentTurn = winnerSeat;
 
       // Broadcast trick completed with 4 cards visible
       broadcastRoom(info.roomId);
@@ -774,39 +830,22 @@ function handleMessage(ws, msg) {
     broadcastRoom(info.roomId);
     return;
   }
-
-  if (msg.type === 'chat') {
-    const text = (msg.text || '').trim();
-    if (!text) return;
-    const chatMsg = {
-      id: `c_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
-      senderName: info.playerName || msg.senderName || 'Gracz',
-      senderSeat: info.seat || msg.senderSeat || null,
-      text,
-      timestamp: Date.now(),
-    };
-    if (!room.chatMessages) room.chatMessages = [];
-    room.chatMessages.push(chatMsg);
-    if (room.chatMessages.length > 100) room.chatMessages.shift();
-
-    wss.clients.forEach(client => {
-      if (client.readyState === WebSocket.OPEN) {
-        const cInfo = clientSockets.get(client);
-        if (cInfo && cInfo.roomId === info.roomId) {
-          client.send(JSON.stringify({ type: 'chat_message', message: chatMsg }));
-        }
-      }
-    });
-    broadcastRoom(info.roomId);
-    return;
-  }
 }
 
 function collectRoomTrick(room) {
   if (room.phase !== 'PLAYING' || !room.currentTrick || room.currentTrick.cards.length !== 4) return;
+  if (room.botTimeout) {
+    clearTimeout(room.botTimeout);
+    room.botTimeout = null;
+  }
   const winnerSeat = room.currentTrick.winnerSeat || determineWinner(room.currentTrick, room.contract.suit);
+  room.currentTrick.winnerSeat = winnerSeat;
+  room.pastTricks.push({ ...room.currentTrick, cards: [...room.currentTrick.cards] });
+  if (winnerSeat === 'N' || winnerSeat === 'S') room.tricksWonNS += 1;
+  else room.tricksWonEW += 1;
+
   if (room.pastTricks.length === 13) {
-    const score = calculateScore(room.contract, room.tricksWonNS, room.tricksWonEW, room.vulnerability);
+    const score = calculateScore(room.contract, room.tricksWonNS, room.tricksWonEW, room.vulnerability, room.dealHands);
     room.lastResult = {
       id: `b_${Date.now()}`,
       boardNumber: room.boardNumber,
@@ -819,10 +858,16 @@ function collectRoomTrick(room) {
       scoreNS: score.scoreNS,
       scoreEW: score.scoreEW,
       resultDetail: score.resultDetail,
+      hcpNS: score.hcpNS,
+      hcpEW: score.hcpEW,
+      expectedScoreNS: score.expectedScoreNS,
+      impNS: score.impNS,
+      impEW: score.impEW,
       timestamp: Date.now(),
     };
     room.history.unshift(room.lastResult);
     room.phase = 'BOARD_RESULT';
+    room.currentTurn = null;
   } else {
     room.currentTurn = winnerSeat;
     room.currentTrick = { leadSeat: winnerSeat, cards: [] };

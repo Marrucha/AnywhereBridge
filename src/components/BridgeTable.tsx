@@ -122,9 +122,9 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
   const isMyTurn = !isUndoPending && mySeat !== null && effectiveTurn === mySeat;
   const isDummyTurn = !isUndoPending && dummySeat !== null && effectiveTurn === dummySeat;
-  // In bridge, declarer (or dummy seat player on their screen) plays the dummy's cards on dummy's turn!
+  // In bridge, declarer plays the dummy's cards from the top hand on dummy's turn!
   const canIPlayDummy =
-    !isUndoPending && mySeat !== null && (declarerSeat === mySeat || dummySeat === mySeat) && isDummyTurn;
+    !isUndoPending && mySeat !== null && declarerSeat === mySeat && isDummyTurn;
 
   const leadCardSuit =
     currentTrick.cards.length > 0 && currentTrick.cards.length < 4
@@ -426,7 +426,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
                 hand={bottomHandToDisplay}
                 isMyTurn={phase === 'PLAYING' ? isMyTurn : false}
                 canIPlayDummy={phase === 'PLAYING' ? canIPlayDummy : false}
-                currentTurn={currentTurn} phase={phase}
+                currentTurn={effectiveTurn} phase={phase}
                 leadCardSuit={phase === 'PLAYING' ? leadCardSuit : null}
                 onPlayCard={phase === 'PLAYING' ? onPlayCard : () => {}}
                 mySeat={bottomSeat}

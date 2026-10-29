@@ -900,12 +900,13 @@ public class LocalAirplaneServer extends NanoWSD {
         if ("PLAYING".equals(phase)) {
             JSONArray cardsArr = currentTrick != null ? currentTrick.optJSONArray("cards") : null;
             if (cardsArr != null && cardsArr.length() == 4) {
-                // Auto-hide after 5 seconds if no player taps the table earlier
+                // Auto-collect after 1.2s on final (13th) trick, or 5s on tricks 1..12 if no player taps/leads earlier
+                int delayMs = (pastTricks.size() == 12) ? 1200 : 5000;
                 pendingBotFuture = botExecutor.schedule(() -> {
                     synchronized (LocalAirplaneServer.this) {
                         collectCompletedTrickInternal();
                     }
-                }, 5000, TimeUnit.MILLISECONDS);
+                }, delayMs, TimeUnit.MILLISECONDS);
                 return;
             }
 
