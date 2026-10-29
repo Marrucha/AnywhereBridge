@@ -27,10 +27,10 @@ export function createLocalBotGame(
   const dealHcp = calculateDealHcp(hands);
 
   const botNames: Record<Seat, string> = {
-    N: 'Bot N (Północ)',
-    E: 'Bot E (Wschód)',
-    S: 'Bot S (Południe)',
-    W: 'Bot W (Zachód)',
+    N: 'Bot N',
+    E: 'Bot E',
+    S: 'Bot S',
+    W: 'Bot W',
   };
 
   const seats: RoomState['seats'] = {

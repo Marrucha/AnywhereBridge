@@ -152,6 +152,30 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
       ? (state.dealHands?.[bottomSeat] || myHand)
       : (myHand && myHand.length > 0 ? myHand : (dummySeat === bottomSeat && dummyHand ? dummyHand : []));
 
+  const getCleanPlayerName = (seat: Seat): string => {
+    const raw = seats[seat]?.name || 'Pusto';
+    return raw.replace(/\s*\((Północ|Wschód|Południe|Zachód)\)/gi, '').trim();
+  };
+
+  const renderSeatBadge = (seat: Seat) => {
+    const isDummy = dummySeat === seat;
+    const isActiveTurn = effectiveTurn === seat || currentBidder === seat;
+    return (
+      <div
+        className={`px-2.5 py-1 rounded-xl text-center border-2 transition shadow-md flex flex-col items-center justify-center min-w-[54px] sm:min-w-[68px] ${
+          isDummy
+            ? 'bg-amber-400 text-slate-950 border-amber-200'
+            : 'bg-white text-slate-950 border-slate-300'
+        } ${isActiveTurn ? 'ring-2 ring-emerald-400 shadow-emerald-500/30' : ''}`}
+      >
+        <span className="text-base sm:text-lg font-black leading-none">{seat}</span>
+        <span className="text-[10px] sm:text-xs font-bold leading-tight truncate max-w-[74px] sm:max-w-[96px]">
+          {getCleanPlayerName(seat)}
+        </span>
+      </div>
+    );
+  };
+
   const renderSideSeat = (sideSeat: Seat) => {
     const showDummy =
       phase === 'BOARD_RESULT' && (state.dealHands?.[sideSeat] || (dummySeat === sideSeat && dummyHand));
@@ -164,27 +188,11 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           canIPlayDummy={false}
           leadCardSuit={null}
           onPlayCard={() => {}}
-          seatName={seats[sideSeat]?.name}
+          seatName={getCleanPlayerName(sideSeat)}
         />
       );
     }
-    return (
-      <div className={`w-14 sm:w-20 px-1.5 py-1 rounded-lg text-center text-[10px] sm:text-xs font-bold border transition ${
-        effectiveTurn === sideSeat || currentBidder === sideSeat
-          ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-          : isSeatVul(sideSeat)
-          ? 'bg-rose-950/90 text-rose-200 border-rose-500'
-          : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
-      }`}>
-        {sideSeat}: {seats[sideSeat] ? seats[sideSeat]!.name : 'Pusto'}
-        {isSeatVul(sideSeat) ? ' (Po)' : ' (Przed)'}
-        {declarerSeat === sideSeat && <span className="block text-[9px] text-amber-300 font-black">Rozgrywa 🎯</span>}
-        {dummySeat === sideSeat && <span className="block text-[9px] text-cyan-300 font-black">Dziadek 👁️ (u góry)</span>}
-        {phase === 'PLAYING' && declarerSeat !== sideSeat && dummySeat !== sideSeat && (
-          <span className="block text-[8px] text-slate-400">Obrońca</span>
-        )}
-      </div>
-    );
+    return renderSeatBadge(sideSeat);
   };
 
   return (
@@ -246,87 +254,57 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         <div className="flex-1 min-w-0 min-h-0 flex flex-col justify-between">
           {/* TOP: PARTNER SEAT (topSeat), INLINE SCORE PILLS & DUMMY CARDS */}
           <div className="w-full relative z-30 flex flex-col items-center gap-0.5 shrink-0">
-            <div className="w-full flex items-center justify-center flex-wrap gap-1.5 px-1 landscape:hidden">
-              {/* N-S Tricks compact pill (during play) */}
+            <div className="w-full flex items-center justify-center flex-wrap gap-2 px-1 landscape:hidden">
+              {/* N-S Tricks card (during play) */}
               {phase === 'PLAYING' && contract && (
-                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold border ${
+                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-sm sm:text-base font-black border-2 shadow ${
                   (bottomSeat === 'N' || bottomSeat === 'S')
-                    ? 'bg-emerald-950/90 border-emerald-500/60 text-emerald-300'
-                    : 'bg-slate-900/90 border-slate-700 text-slate-300'
+                    ? 'bg-emerald-950/95 border-emerald-400 text-emerald-300'
+                    : 'bg-slate-900/95 border-slate-600 text-slate-200'
                 }`}>
                   <span>NS:</span>
-                  <span className="font-black text-white font-mono">{tricksWonNS}</span>
+                  <span className="text-lg sm:text-xl font-black text-white font-mono leading-none">{tricksWonNS}</span>
                   {(contract.declarer === 'N' || contract.declarer === 'S') && (
-                    <span className="text-[9px] text-emerald-400">/{contract.level + 6}</span>
+                    <span className="text-xs sm:text-sm text-emerald-400 font-bold">/{contract.level + 6}</span>
                   )}
                 </div>
               )}
 
               {/* Top Partner Seat Badge */}
-              <div className={`px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border transition flex items-center gap-1 ${
-                currentTurn === topSeat || currentBidder === topSeat
-                  ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-                  : isSeatVul(topSeat)
-                  ? 'bg-rose-950/90 text-rose-200 border-rose-500'
-                  : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
-              }`}>
-                <span>
-                  {topSeat}: {seats[topSeat] ? seats[topSeat]!.name : 'Pusto'}
-                  {isSeatVul(topSeat) ? ' (Po)' : ' (Przed)'}
-                </span>
-                {phase === 'PLAYING' && (
-                  <span className="opacity-90">
-                    {declarerSeat === topSeat ? '• Rozgrywający' :
-                     dummySeat === topSeat ? '• Dziadek' :
-                     `• 🔒 ${Math.max(0, 13 - (pastTricks ? pastTricks.length : 0) - (getPlayedCardForSeat(topSeat) ? 1 : 0))} kart`}
-                  </span>
-                )}
-              </div>
+              {renderSeatBadge(topSeat)}
 
-              {/* Vulnerability badge + Undo button right next to it ("Obok informacji obie przed") */}
-              {(phase === 'PLAYING' || phase === 'BIDDING') && (
-                <div className="flex items-center gap-1">
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black border ${
-                    vulnerability === 'NONE' ? 'text-emerald-300 bg-emerald-950/90 border-emerald-500/50' :
-                    vulnerability === 'BOTH' ? 'text-rose-300 bg-rose-950/90 border-rose-500/50' :
-                    'text-amber-300 bg-amber-950/90 border-amber-500/50'
-                  }`}>
-                    {formatVulnerabilityPl(vulnerability)}
-                  </span>
-
-                  {onRequestUndo && (
-                    <button
-                      type="button"
-                      disabled={!canUndoMove}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRequestUndo();
-                      }}
-                      className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-black border transition shadow ${
-                        canUndoMove
-                          ? 'bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 border-amber-300 cursor-pointer'
-                          : 'bg-slate-900/70 text-slate-500 border-slate-700/60 cursor-not-allowed opacity-60'
-                      }`}
-                      title="Poproś przeciwników o cofnięcie ostatniego ruchu / karty"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Cofnij</span>
-                    </button>
-                  )}
-                </div>
+              {/* Enlarged Undo button (without vulnerability text) */}
+              {(phase === 'PLAYING' || phase === 'BIDDING') && onRequestUndo && (
+                <button
+                  type="button"
+                  disabled={!canUndoMove}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRequestUndo();
+                  }}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-black border-2 transition shadow-md ${
+                    canUndoMove
+                      ? 'bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 border-amber-200 cursor-pointer'
+                      : 'bg-slate-900/80 text-slate-400 border-slate-700 cursor-not-allowed opacity-60'
+                  }`}
+                  title="Poproś przeciwników o cofnięcie ostatniego ruchu / karty"
+                >
+                  <RotateCcw className="w-4 h-4 shrink-0" />
+                  <span>Cofnij</span>
+                </button>
               )}
 
-              {/* E-W Tricks compact pill (during play) */}
+              {/* E-W Tricks card (during play) */}
               {phase === 'PLAYING' && contract && (
-                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold border ${
+                <div className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-sm sm:text-base font-black border-2 shadow ${
                   (bottomSeat === 'E' || bottomSeat === 'W')
-                    ? 'bg-emerald-950/90 border-emerald-500/60 text-emerald-300'
-                    : 'bg-slate-900/90 border-slate-700 text-slate-300'
+                    ? 'bg-emerald-950/95 border-emerald-400 text-emerald-300'
+                    : 'bg-slate-900/95 border-slate-600 text-slate-200'
                 }`}>
                   <span>EW:</span>
-                  <span className="font-black text-white font-mono">{tricksWonEW}</span>
+                  <span className="text-lg sm:text-xl font-black text-white font-mono leading-none">{tricksWonEW}</span>
                   {(contract.declarer === 'E' || contract.declarer === 'W') && (
-                    <span className="text-[9px] text-emerald-400">/{contract.level + 6}</span>
+                    <span className="text-xs sm:text-sm text-emerald-400 font-bold">/{contract.level + 6}</span>
                   )}
                 </div>
               )}
@@ -336,11 +314,6 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             {((phase === 'PLAYING' && dummySeat && dummySeat !== bottomSeat && dummyHand && dummyHand.length > 0) ||
               (phase === 'BOARD_RESULT' && (state.dealHands?.[topSeat] || (dummySeat === topSeat && dummyHand)))) && (
               <div className="w-full">
-                {phase === 'PLAYING' && dummySeat && dummySeat !== topSeat && (
-                  <div className="text-center text-[10px] font-black text-cyan-300 leading-none pb-0.5 landscape:hidden">
-                    🂠 Karty Dziadka ({dummySeat}: {seats[dummySeat]?.name || SEAT_NAMES[dummySeat]})
-                  </div>
-                )}
                 <DummyHandView
                   dummySeat={phase === 'PLAYING' && dummySeat ? dummySeat : topSeat}
                   dummyHand={phase === 'BOARD_RESULT' ? (state.dealHands?.[topSeat] || dummyHand || []) : dummyHand!}
@@ -350,7 +323,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
                   trumpSuit={contract ? contract.suit : undefined}
                   declarerSeat={declarerSeat}
                   mySeat={mySeat}
-                  seatName={seats[phase === 'PLAYING' && dummySeat ? dummySeat : topSeat]?.name}
+                  seatName={getCleanPlayerName(phase === 'PLAYING' && dummySeat ? dummySeat : topSeat)}
                 />
               </div>
             )}
@@ -369,14 +342,20 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
                   {renderSideSeat(leftSeat)}
                 </div>
 
-                {/* FELT CENTER - Tall full-height felt table with generous space to lay 4 cards */}
+                {/* FELT CENTER - Thick Vulnerability Frame: Top/Bottom = Our Side, Left/Right = Opponents */}
                 <div
                   onClick={() => {
                     if (phase === 'PLAYING' && currentTrick.cards.length === 4 && onCollectTrick) {
                       onCollectTrick();
                     }
                   }}
-                  className={`flex-1 self-stretch max-w-xl mx-1 sm:mx-2 bg-felt/90 border-2 sm:border-4 border-amber-900/40 rounded-2xl p-1 sm:p-2 shadow-inner relative min-h-[110px] land:min-h-[80px] desk:min-h-[220px] flex flex-col items-center justify-center ${
+                  style={{
+                    borderTopColor: isSeatVul(bottomSeat) ? '#dc2626' : '#ffffff',
+                    borderBottomColor: isSeatVul(bottomSeat) ? '#dc2626' : '#ffffff',
+                    borderLeftColor: isSeatVul(leftSeat) ? '#dc2626' : '#ffffff',
+                    borderRightColor: isSeatVul(leftSeat) ? '#dc2626' : '#ffffff',
+                  }}
+                  className={`flex-1 self-stretch max-w-xl mx-1 sm:mx-2 bg-felt/90 border-[5px] sm:border-[6px] border-solid rounded-2xl p-1 sm:p-2 shadow-inner relative min-h-[110px] land:min-h-[80px] desk:min-h-[220px] flex flex-col items-center justify-center ${
                     currentTrick.cards.length === 4 ? 'cursor-pointer' : ''
                   }`}
                 >
@@ -390,7 +369,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
                           Trwa licytacja • Rozdanie #{state.boardNumber}
                         </span>
                         <span className="text-xs text-slate-300">
-                          Rozdaje: <strong className="text-white">{SEAT_NAMES[dealer]}</strong> • Założenia: <strong className="text-amber-300">{formatVulnerabilityPl(vulnerability)}</strong>
+                          Rozdaje: <strong className="text-white">{dealer}</strong>
                         </span>
                         <span className="text-[11px] text-emerald-300 font-semibold">
                           👉 Panel licytacji po prawej stronie stołu
@@ -419,23 +398,8 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
           {/* BOTTOM SECTION: MY SEAT (bottomSeat) / PORTRAIT BIDDING CONTROLS & MY HAND */}
           <div className="relative z-30 flex flex-col items-center w-full space-y-0.5 shrink-0">
-            <div className={`landscape:hidden px-3 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border transition shrink-0 ${
-              currentTurn === bottomSeat || currentBidder === bottomSeat
-                ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
-                : isSeatVul(bottomSeat)
-                ? 'bg-rose-950/90 text-rose-200 border-rose-500'
-                : 'bg-emerald-950/80 text-emerald-200 border-emerald-600'
-            }`}>
-              {bottomSeat}: {seats[bottomSeat] ? seats[bottomSeat]!.name : 'Pusto'}
-              {isSeatVul(bottomSeat) ? ' (Po)' : ' (Przed)'}
-              {phase === 'PLAYING' && (
-                declarerSeat === bottomSeat ? ' • Ty (Rozgrywający 🎯)' :
-                dummySeat === bottomSeat ? ' • Ty (Dziadek)' :
-                ' • Ty (Obrońca)'
-              )}
-              {phase === 'PLAYING' && isMyTurn && ' • 👇 Twoja tura!'}
-              {phase === 'PLAYING' && canIPlayDummy && ' • 👆 Graj z Dziadka!'}
-              {phase !== 'PLAYING' && mySeat === bottomSeat && ' • (Ty)'}
+            <div className="landscape:hidden shrink-0">
+              {renderSeatBadge(bottomSeat)}
             </div>
 
             {phase === 'BIDDING' && (

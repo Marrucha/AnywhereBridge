@@ -64,10 +64,13 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
   return (
     <div className="flex flex-col gap-1 bg-slate-950/90 border-2 border-amber-400/80 rounded-xl p-1 sm:p-1.5 shadow-2xl w-full min-w-0 animate-fadeIn overflow-hidden">
       {/* Header */}
-      <div className="text-center pb-0.5 border-b border-slate-700/80 leading-tight flex items-center justify-center gap-1.5">
-        <span className="text-xs sm:text-sm font-black text-amber-300">
-          {dummySeat}: {seatName || (dummySeat === 'E' ? 'Wschód' : 'Zachód')}
-        </span>
+      <div className="text-center pb-0.5 border-b border-slate-700/80 leading-tight flex flex-col items-center justify-center">
+        <span className="text-sm sm:text-base font-black text-white leading-none">{dummySeat}</span>
+        {seatName && (
+          <span className="text-[10px] sm:text-xs font-bold text-slate-300 leading-tight truncate max-w-full">
+            {seatName}
+          </span>
+        )}
       </div>
 
       {/* 4 Suits rendered with full-size player cards ("player" - exact same size as S!) */}

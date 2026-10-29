@@ -87,7 +87,7 @@ export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
       className="hidden landscape:flex landscape:flex-col landscape:w-1/4 landscape:min-w-[175px] landscape:max-w-[260px] shrink-0 h-full justify-between bg-slate-950/90 border-l border-slate-800/90 p-1.5 gap-1.5 overflow-y-auto z-30"
     >
       {/* Top Action Row: Cofnij & Czat (always available in right box) */}
-      <div className="grid grid-cols-2 gap-1 shrink-0">
+      <div className="grid grid-cols-2 gap-1.5 shrink-0">
         <button
           type="button"
           disabled={!canUndoMove || !onRequestUndo}
@@ -95,13 +95,13 @@ export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
             e.stopPropagation();
             if (onRequestUndo) onRequestUndo();
           }}
-          className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-black border transition shadow ${
+          className={`flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-black border-2 transition shadow-md ${
             canUndoMove
-              ? 'bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 border-amber-300 cursor-pointer'
-              : 'bg-slate-900/80 text-slate-500 border-slate-800 cursor-not-allowed opacity-60'
+              ? 'bg-amber-500 hover:bg-amber-400 active:scale-95 text-slate-950 border-amber-200 cursor-pointer'
+              : 'bg-slate-900/80 text-slate-400 border-slate-700 cursor-not-allowed opacity-60'
           }`}
         >
-          <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+          <RotateCcw className="w-4 h-4 shrink-0" />
           <span>Cofnij</span>
         </button>
 
@@ -111,9 +111,9 @@ export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
             e.stopPropagation();
             if (onOpenChat) onOpenChat();
           }}
-          className="flex items-center justify-center gap-1 py-1.5 px-2 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 border border-slate-700 transition shadow cursor-pointer"
+          className="flex items-center justify-center gap-1.5 py-2 px-2.5 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 active:scale-95 text-emerald-300 border-2 border-slate-700 transition shadow-md cursor-pointer"
         >
-          <MessageSquare className="w-3.5 h-3.5 shrink-0" />
+          <MessageSquare className="w-4 h-4 shrink-0" />
           <span>Czat</span>
         </button>
       </div>
@@ -123,7 +123,6 @@ export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
         <div className="flex-1 min-h-0 flex flex-col justify-start gap-1 overflow-y-auto">
           <div className="flex items-center justify-between px-1 text-[10px] font-bold text-slate-300">
             <span>Rozd. #{boardNumber} ({dealer})</span>
-            <span className="text-amber-300">{formatVulnerabilityPl(vulnerability)}</span>
           </div>
           <BiddingTray dealer={dealer} bids={bids} />
           <BiddingBox
@@ -138,10 +137,10 @@ export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
       {/* PLAYING / BOARD_RESULT PHASE: Tricks Counter & Contract Box */}
       {(phase === 'PLAYING' || phase === 'BOARD_RESULT') && (
         <div className="flex-1 flex flex-col justify-center gap-2">
-          {/* Contract & Vulnerability compact card */}
+          {/* Contract compact card (without vulnerability text) */}
           <div className="bg-slate-900/95 border border-slate-700/80 rounded-xl p-2 text-center shadow-lg">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-              Rozdanie #{boardNumber} • {formatVulnerabilityPl(vulnerability)}
+              Rozdanie #{boardNumber}
             </div>
             {contract && (
               <button
@@ -171,33 +170,33 @@ export const LandscapeSidePanel: React.FC<LandscapeSidePanelProps> = ({
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               <div
-                className={`p-2 rounded-xl border text-center ${
+                className={`p-2 rounded-xl border-2 text-center ${
                   isMySideNS
-                    ? 'bg-emerald-950/80 border-emerald-500/70'
-                    : 'bg-slate-800/80 border-slate-700'
+                    ? 'bg-emerald-950/90 border-emerald-400'
+                    : 'bg-slate-800/90 border-slate-600'
                 }`}
               >
-                <div className="text-[10px] font-bold text-slate-300">NS</div>
-                <div className="text-xl font-black font-mono text-white leading-tight">
+                <div className="text-xs font-black text-slate-200">NS</div>
+                <div className="text-2xl sm:text-3xl font-black font-mono text-white leading-tight">
                   {tricksWonNS}
                   {contract && (contract.declarer === 'N' || contract.declarer === 'S') && (
-                    <span className="text-xs text-emerald-400 font-bold">/{contract.level + 6}</span>
+                    <span className="text-sm text-emerald-400 font-bold">/{contract.level + 6}</span>
                   )}
                 </div>
               </div>
 
               <div
-                className={`p-2 rounded-xl border text-center ${
+                className={`p-2 rounded-xl border-2 text-center ${
                   !isMySideNS
-                    ? 'bg-emerald-950/80 border-emerald-500/70'
-                    : 'bg-slate-800/80 border-slate-700'
+                    ? 'bg-emerald-950/90 border-emerald-400'
+                    : 'bg-slate-800/90 border-slate-600'
                 }`}
               >
-                <div className="text-[10px] font-bold text-slate-300">EW</div>
-                <div className="text-xl font-black font-mono text-white leading-tight">
+                <div className="text-xs font-black text-slate-200">EW</div>
+                <div className="text-2xl sm:text-3xl font-black font-mono text-white leading-tight">
                   {tricksWonEW}
                   {contract && (contract.declarer === 'E' || contract.declarer === 'W') && (
-                    <span className="text-xs text-emerald-400 font-bold">/{contract.level + 6}</span>
+                    <span className="text-sm text-emerald-400 font-bold">/{contract.level + 6}</span>
                   )}
                 </div>
               </div>
