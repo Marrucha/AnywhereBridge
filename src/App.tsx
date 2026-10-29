@@ -10,6 +10,7 @@ import { AppHeader } from './components/AppHeader';
 import { ConnectingScreen } from './components/ConnectingScreen';
 import { EightBoardSummary } from './components/EightBoardSummary';
 import { useLocalBotGame } from './hooks/useLocalBotGame';
+import { calculateDealHcp, calculateBoardImp } from './logic/impScoring';
 import {
   getStoredScores,
   saveScoreRecord,
@@ -174,6 +175,18 @@ export const App: React.FC = () => {
           try {
             const msg: ServerMessage = JSON.parse(event.data);
             if (msg.type === 'state_update') {
+              if (msg.state.lastResult && msg.state.lastResult.hcpNS === undefined && msg.state.dealHands) {
+                const { hcpNS, hcpEW } = calculateDealHcp(msg.state.dealHands);
+                const impRes = calculateBoardImp(msg.state.lastResult.scoreNS, hcpNS, msg.state.vulnerability);
+                msg.state.lastResult = {
+                  ...msg.state.lastResult,
+                  hcpNS, hcpEW,
+                  expectedScoreNS: impRes.expectedScoreNS,
+                  expectedContractDesc: impRes.expectedContractDesc,
+                  impNS: impRes.impNS,
+                  impEW: impRes.impEW,
+                };
+              }
               setRoomState(msg.state);
               setMySeat(msg.yourSeat);
               saveStoredSeat(msg.yourSeat);
@@ -373,55 +386,38 @@ export const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen w-screen bg-felt-dark text-slate-100 overflow-hidden font-sans">
-      {/* TOP HUD BAR */}
-      <AppHeader
-        roomId={roomId}
-        isBotGame={isBotGame}
-        onStopBotGame={stopBotGame}
-        effectiveState={effectiveState}
-        connected={connected}
-        activeWsUrl={activeWsUrl}
-        onOpenConnection={() => setIsConnectionOpen(true)}
-        onOpenPlayers={() => setIsPlayersOpen(true)}
-        onOpenScores={() => setIsScoreOpen(true)}
-        localScoresCount={localScores.length}
-        onOpenQR={() => setIsQROpen(true)}
-        onOpenChat={() => {
-          setIsChatOpen(true);
-          setUnreadChatCount(0);
-        }}
-        unreadChatCount={unreadChatCount}
-        onResetRoom={handleResetRoom}
-      />
+      {/* TOP HUD BAR (Hidden in Landscape during active game so play area is 100% fullscreen) */}
+      <div className={effectiveState && effectiveState.phase !== 'LOBBY' ? 'landscape:hidden shrink-0' : 'shrink-0'}>
+        <AppHeader
+          roomId={roomId} isBotGame={isBotGame} onStopBotGame={stopBotGame}
+          effectiveState={effectiveState} connected={connected} activeWsUrl={activeWsUrl}
+          onOpenConnection={() => setIsConnectionOpen(true)}
+          onOpenPlayers={() => setIsPlayersOpen(true)}
+          onOpenScores={() => setIsScoreOpen(true)}
+          localScoresCount={localScores.length}
+          onOpenQR={() => setIsQROpen(true)}
+          onOpenChat={() => { setIsChatOpen(true); setUnreadChatCount(0); }}
+          unreadChatCount={unreadChatCount}
+          onResetRoom={handleResetRoom}
+        />
+      </div>
 
       {/* MAIN GAME TABLE VIEW */}
       <main className="flex-1 relative overflow-hidden">
         {effectiveState ? (
           <BridgeTable
-            state={effectiveState}
-            mySeat={effectiveMySeat}
-            playerName={playerName}
-            onChangePlayerName={handleChangePlayerName}
-            onTakeSeat={handleTakeSeat}
-            onLeaveSeat={handleLeaveSeat}
-            onStartGame={handleStartGame}
-            onMakeBid={handleMakeBid}
-            onPlayCard={handlePlayCard}
-            onCollectTrick={handleCollectTrick}
-            onNextBoard={handleNextBoard}
-            onResetRoom={handleResetRoom}
-            onOpenQR={() => setIsQROpen(true)}
+            state={effectiveState} mySeat={effectiveMySeat} playerName={playerName}
+            onChangePlayerName={handleChangePlayerName} onTakeSeat={handleTakeSeat}
+            onLeaveSeat={handleLeaveSeat} onStartGame={handleStartGame}
+            onMakeBid={handleMakeBid} onPlayCard={handlePlayCard}
+            onCollectTrick={handleCollectTrick} onNextBoard={handleNextBoard}
+            onResetRoom={handleResetRoom} onOpenQR={() => setIsQROpen(true)}
             onOpenScores={() => setIsScoreOpen(true)}
-            onOpenChat={() => {
-              setIsChatOpen(true);
-              setUnreadChatCount(0);
-            }}
+            onOpenChat={() => { setIsChatOpen(true); setUnreadChatCount(0); }}
             latestChatMessage={latestChatMessage}
-            onRequestUndo={handleRequestUndo}
-            onRespondUndo={handleRespondUndo}
+            onRequestUndo={handleRequestUndo} onRespondUndo={handleRespondUndo}
             onStartBotGame={() => startBotGame(mySeat || 'S', (localScores.length % 8) + 1)}
-            onStartNewEight={handleStartNewEight}
-            isBotGame={isBotGame}
+            onStartNewEight={handleStartNewEight} isBotGame={isBotGame}
             ddsResult={ddsResult} ddsLoading={ddsLoading}
           />
         ) : (

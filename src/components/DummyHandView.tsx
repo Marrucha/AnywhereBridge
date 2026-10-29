@@ -103,27 +103,30 @@ export const DummyHandView: React.FC<DummyHandViewProps> = ({
   };
 
   return (
-    <div className="w-full relative flex flex-col items-center shrink-0">
+    <div
+      onClick={(e) => e.stopPropagation()}
+      className="w-full relative z-30 flex flex-col items-center shrink-0"
+    >
       {hintMessage && (
-        <div className="absolute -bottom-5 z-30 text-amber-200 bg-rose-950/95 border border-amber-400 px-2.5 py-0.5 rounded-full text-[10px] font-black shadow-lg animate-bounce pointer-events-none">
+        <div className="absolute -bottom-5 z-40 text-amber-200 bg-rose-950/95 border border-amber-400 px-2.5 py-0.5 rounded-full text-[10px] font-black shadow-lg animate-bounce pointer-events-none">
           {hintMessage}
         </div>
       )}
 
       {/* Full-width responsive card fan for Dummy directly on felt (no bulky wrapper bar) */}
-      <div className="w-full flex items-end justify-center pt-1 pb-0.5 px-1 overflow-visible">
+      <div className="w-full flex items-end justify-center pt-0.5 pb-0.5 px-1 overflow-visible">
         {orderedCards.map(({ card, isNewSuit }, idx) => {
           const isLast = idx === orderedCards.length - 1;
           const isPlayable = canIPlayDummy && isCardLegal(card, dummyHand, leadCardSuit);
           return (
             <React.Fragment key={card.id}>
-              {isNewSuit && <div className="w-1.5 land:w-2 desk:w-2.5 shrink-0" />}
+              {isNewSuit && <div className="w-1.5 land:w-1.5 desk:w-2.5 shrink-0" />}
               <div
                 style={{ zIndex: idx + 1 }}
                 className={
                   isLast
-                    ? 'relative w-[62px] land:w-[56px] desk:w-[78px] shrink-0 flex justify-start'
-                    : 'relative flex-1 min-w-0 max-w-[56px] land:max-w-[52px] desk:max-w-[72px] flex justify-start overflow-visible'
+                    ? 'relative w-[60px] land:w-[50px] desk:w-[76px] shrink-0 flex justify-start'
+                    : 'relative flex-1 min-w-0 max-w-[54px] land:max-w-[46px] desk:max-w-[70px] flex justify-start overflow-visible'
                 }
               >
                 <CardView

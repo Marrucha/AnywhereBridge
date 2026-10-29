@@ -468,12 +468,13 @@ public class LocalAirplaneServer extends NanoWSD {
                 // If 4 cards from previous trick are still on table, collect trick immediately first!
                 JSONArray existingCards = currentTrick.optJSONArray("cards");
                 if (existingCards != null && existingCards.length() == 4) {
-                    collectCompletedTrickInternal();
+                    collectCompletedTrickInternal(false);
                     if (!"PLAYING".equals(phase)) return;
                 }
 
                 boolean isMyTurn = ws.seat.equals(currentTurn);
-                boolean isDummyTurn = dummySeat != null && dummySeat.equals(currentTurn) && ws.seat.equals(declarerSeat);
+                boolean isDummyTurn = dummySeat != null && dummySeat.equals(currentTurn)
+                        && (ws.seat.equals(declarerSeat) || ws.seat.equals(dummySeat));
                 if (!isMyTurn && !isDummyTurn) return;
 
                 String activeSeat = isDummyTurn ? dummySeat : ws.seat;
@@ -484,7 +485,7 @@ public class LocalAirplaneServer extends NanoWSD {
 
             if ("collect_trick".equals(type)) {
                 if (undoRequest != null) return;
-                collectCompletedTrickInternal();
+                collectCompletedTrickInternal(true);
                 return;
             }
 
@@ -618,7 +619,7 @@ public class LocalAirplaneServer extends NanoWSD {
                     lastResult.put("tricksWonEW", 0);
                     lastResult.put("scoreNS", 0);
                     lastResult.put("scoreEW", 0);
-                    lastResult.put("resultDetail", "4x PAS (Rozdanie pasowe, 0 pkt)");
+                    enrichResultWithHcpAndImp(lastResult, 0, vulnerability, "4x PAS (0 pkt)");
                     lastResult.put("timestamp", System.currentTimeMillis());
                     history.add(0, lastResult);
                     phase = "BOARD_RESULT";
@@ -755,6 +756,10 @@ public class LocalAirplaneServer extends NanoWSD {
     }
 
     private synchronized void collectCompletedTrickInternal() {
+        collectCompletedTrickInternal(true);
+    }
+
+    private synchronized void collectCompletedTrickInternal(boolean shouldBroadcast) {
         try {
             if (!"PLAYING".equals(phase) || currentTrick == null) return;
             JSONArray cardsArr = currentTrick.optJSONArray("cards");
@@ -786,8 +791,10 @@ public class LocalAirplaneServer extends NanoWSD {
                 currentTrick = new JSONObject();
                 currentTrick.put("leadSeat", winner);
                 currentTrick.put("cards", new JSONArray());
-                broadcastState();
-                scheduleBotActionIfNeeded();
+                if (shouldBroadcast) {
+                    broadcastState();
+                    scheduleBotActionIfNeeded();
+                }
             }
         } catch (Exception e) {
             Log.e(TAG, "Error in collectCompletedTrickInternal", e);
@@ -1079,7 +1086,7 @@ public class LocalAirplaneServer extends NanoWSD {
             String diffStr = diff == 0 ? "=" : diff > 0 ? ("+" + diff) : String.valueOf(diff);
             String sym = "C".equals(suit) ? "♣" : "D".equals(suit) ? "♦" : "H".equals(suit) ? "♥" : "S".equals(suit) ? "♠" : "BA";
             String dStr = "REDOUBLED".equals(doubled) ? "xx" : "DOUBLED".equals(doubled) ? "x" : "";
-            String resultDetail = level + sym + dStr + " " + diffStr + " by " + declarer + " (" + (totalScore >= 0 ? "+" : "") + totalScore + ")";
+            String baseResultDetail = level + sym + dStr + " " + diffStr + " (" + (totalScore >= 0 ? "+" : "") + totalScore + ")";
 
             res.put("id", "b_" + System.currentTimeMillis());
             res.put("boardNumber", boardNumber);
@@ -1091,12 +1098,120 @@ public class LocalAirplaneServer extends NanoWSD {
             res.put("tricksWonEW", wonEW);
             res.put("scoreNS", scoreNS);
             res.put("scoreEW", scoreEW);
-            res.put("resultDetail", resultDetail);
+            enrichResultWithHcpAndImp(res, scoreNS, vul, baseResultDetail);
             res.put("timestamp", System.currentTimeMillis());
         } catch (Exception e) {
             Log.e(TAG, "Scoring error", e);
         }
         return res;
+    }
+
+    private int calculateHandHcp(List<String> hand) {
+        if (hand == null) return 0;
+        int sum = 0;
+        for (String cId : hand) {
+            if (cId == null || cId.isEmpty()) continue;
+            char r = cId.charAt(0);
+            if (r == 'A') sum += 4;
+            else if (r == 'K') sum += 3;
+            else if (r == 'Q') sum += 2;
+            else if (r == 'J') sum += 1;
+        }
+        return sum;
+    }
+
+    private int convertDiffToImp(int diff) {
+        int a = Math.abs(diff);
+        int imp;
+        if (a <= 10) imp = 0;
+        else if (a <= 40) imp = 1;
+        else if (a <= 80) imp = 2;
+        else if (a <= 120) imp = 3;
+        else if (a <= 160) imp = 4;
+        else if (a <= 210) imp = 5;
+        else if (a <= 260) imp = 6;
+        else if (a <= 310) imp = 7;
+        else if (a <= 360) imp = 8;
+        else if (a <= 420) imp = 9;
+        else if (a <= 490) imp = 10;
+        else if (a <= 590) imp = 11;
+        else if (a <= 740) imp = 12;
+        else if (a <= 890) imp = 13;
+        else if (a <= 1090) imp = 14;
+        else if (a <= 1290) imp = 15;
+        else if (a <= 1490) imp = 16;
+        else if (a <= 1740) imp = 17;
+        else if (a <= 1990) imp = 18;
+        else if (a <= 2240) imp = 19;
+        else if (a <= 2490) imp = 20;
+        else if (a <= 2990) imp = 21;
+        else if (a <= 3490) imp = 22;
+        else if (a <= 3990) imp = 23;
+        else imp = 24;
+        return diff >= 0 ? imp : -imp;
+    }
+
+    private void enrichResultWithHcpAndImp(JSONObject res, int scoreNS, String vul, String baseDetail) {
+        try {
+            int hcpNS = calculateHandHcp(dealHands.get("N")) + calculateHandHcp(dealHands.get("S"));
+            int hcpEW = 40 - hcpNS;
+            boolean isNSVul = isSideVulnerable("NS", vul);
+            boolean isEWVul = isSideVulnerable("EW", vul);
+
+            int majorityHcp = Math.max(hcpNS, hcpEW);
+            boolean majorityVul = hcpNS >= 20 ? isNSVul : isEWVul;
+            int clamped = Math.min(37, Math.max(20, majorityHcp));
+
+            int[] nonVulTable = {0, 50, 70, 110, 200, 300, 350, 400, 430, 460, 490, 600, 700, 900, 1000, 1100, 1200, 1400};
+            int[] vulTable    = {0, 50, 70, 110, 290, 440, 520, 600, 630, 660, 690, 800, 1050, 1350, 1500, 1650, 1800, 2100};
+            String[] descTable = {
+                "Równowaga (częściówka 0)",
+                "Częściówka (1-2 w kolor, 50 pkt)",
+                "Częściówka (2 w kolor, 70 pkt)",
+                "Częściówka (2-3 w kolor, 110 pkt)",
+                "Inwit / Częściówka z nadróbkami",
+                "Końcówka (3BA / 4 w starszy)",
+                "Końcówka (3BA / 4 w starszy)",
+                "Pewna końcówka (3BA / 4♠/4♥)",
+                "Końcówka z nadróbką (3BA +1)",
+                "Końcówka z 2 nadróbkami (3BA +2)",
+                "Wysoka końcówka (490/690 pkt)",
+                "Inwit szlemowy (600/800 pkt)",
+                "Granica szlema (700/1050 pkt)",
+                "Mały szlem (6 w starszy / 6BA)",
+                "Mały szlem z nadróbką",
+                "Inwit do wielkiego szlema",
+                "Inwit do wielkiego szlema",
+                "Wielki szlem (7 w kolor / 7BA)"
+            };
+
+            int idx = clamped - 20;
+            int expPts = majorityVul ? vulTable[idx] : nonVulTable[idx];
+            String desc = descTable[idx];
+
+            int expectedScoreNS;
+            String expectedContractDesc;
+            if (hcpNS >= 20) {
+                expectedScoreNS = expPts;
+                expectedContractDesc = desc + " (" + (expectedScoreNS > 0 ? "+" : "") + expectedScoreNS + " pkt)";
+            } else {
+                expectedScoreNS = -expPts;
+                expectedContractDesc = "Przeciwnicy: " + desc + " (" + expectedScoreNS + " pkt)";
+            }
+
+            int impNS = convertDiffToImp(scoreNS - expectedScoreNS);
+            int impEW = -impNS;
+            String impStr = impNS > 0 ? ("+" + impNS + " IMP") : (impNS + " IMP");
+            String fullDetail = baseDetail + " • " + impStr + " (PC: " + hcpNS + "-" + hcpEW + ")";
+
+            res.put("hcpNS", hcpNS);
+            res.put("hcpEW", hcpEW);
+            res.put("expectedScoreNS", expectedScoreNS);
+            res.put("expectedContractDesc", expectedContractDesc);
+            res.put("impNS", impNS);
+            res.put("impEW", impEW);
+            res.put("resultDetail", fullDetail);
+        } catch (Exception ignored) {}
     }
 
     private void broadcastState() {

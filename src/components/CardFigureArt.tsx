@@ -14,10 +14,10 @@ const SUIT_UNICODE: Record<Suit, string> = {
 };
 
 const SUIT_FILL: Record<Suit, string> = {
-  S: '#0f172a', // Slate 900
-  H: '#dc2626', // Red 600
-  D: '#ea580c', // Orange 600
-  C: '#047857', // Emerald 700
+  S: '#020617', // Pure Black Spades
+  H: '#dc2626', // Pure Red Hearts
+  D: '#f97316', // Pure Orange Diamonds
+  C: '#16a34a', // Pure Green Clubs
 };
 
 export const CardFigureArt: React.FC<CardFigureArtProps> = ({ rank, suit }) => {

@@ -22,10 +22,10 @@ const SUIT_SYMBOLS: Record<Suit, string> = {
 };
 
 const SUIT_COLORS: Record<Suit, string> = {
-  S: 'text-sky-300',
-  H: 'text-rose-400',
-  D: 'text-amber-400',
-  C: 'text-emerald-400',
+  S: 'text-slate-950 bg-white/95 rounded px-0.5',
+  H: 'text-red-500',
+  D: 'text-orange-500',
+  C: 'text-green-500',
   NT: '',
 };
 
@@ -62,55 +62,51 @@ export const SideDummyHandView: React.FC<SideDummyHandViewProps> = ({
   });
 
   return (
-    <div className="flex flex-col gap-0.5 bg-slate-950/95 border-2 border-amber-400/80 rounded-xl p-0.5 sm:p-1 shadow-2xl shrink-0 animate-fadeIn max-h-[96%] overflow-y-auto overflow-x-hidden">
+    <div className="flex flex-col gap-1 bg-slate-950/90 border-2 border-amber-400/80 rounded-xl p-1 sm:p-1.5 shadow-2xl w-full min-w-0 animate-fadeIn overflow-hidden">
       {/* Header */}
-      <div className="text-center pb-0.5 border-b border-slate-700/80 leading-tight">
-        <div className="text-[10px] sm:text-xs font-black text-amber-300">
-          🂠 Dziadek ({dummySeat})
-        </div>
-        <div className="text-[9px] text-slate-400 font-semibold truncate max-w-[120px] sm:max-w-[160px]">
-          {seatName || (dummySeat === 'E' ? 'Wschód' : 'Zachód')} ({dummyHand.length})
-        </div>
+      <div className="text-center pb-0.5 border-b border-slate-700/80 leading-tight flex items-center justify-center gap-1.5">
+        <span className="text-xs sm:text-sm font-black text-amber-300">
+          {dummySeat}: {seatName || (dummySeat === 'E' ? 'Wschód' : 'Zachód')}
+        </span>
       </div>
 
-      {/* 4 Suits in bridge column notation with REAL PLAYING CARDS (SAME SIZE AS DUMMY N: size="dummy") */}
-      <div className="space-y-0.5 sm:space-y-1 pt-0.5">
-        {suitsOrder.map(suit => {
+      {/* 4 Suits rendered with full-size player cards ("player" - exact same size as S!) */}
+      <div className="flex flex-col gap-1 pt-0.5">
+        {suitsOrder.map((suit, sIdx) => {
           const cards = cardsBySuit[suit];
+          if (cards.length === 0) return null;
           return (
-            <div key={suit} className="flex items-center gap-0.5 sm:gap-1 min-h-[42px] sm:min-h-[56px]">
-              {/* Suit marker */}
-              <span className={`text-sm sm:text-base font-black w-3.5 sm:w-4 text-center shrink-0 ${SUIT_COLORS[suit]}`}>
-                {SUIT_SYMBOLS[suit]}
-              </span>
-
-              {/* Real playing cards with overlap - EXACT same size as dummy N */}
-              <div className="flex items-center">
-                {cards.length === 0 ? (
-                  <span className="text-xs text-slate-500 font-mono pl-1">—</span>
-                ) : (
-                  cards.map((card, idx) => {
-                    const isPlayable = canIPlayDummy && isCardLegal(card, dummyHand, leadCardSuit);
-                    return (
-                      <div
-                        key={card.id}
-                        className={`transition-transform ${
-                          idx > 0 ? '-ml-[18px] sm:-ml-[23px]' : ''
-                        } ${isPlayable ? 'hover:-translate-y-1 z-20' : 'z-10'}`}
-                      >
-                        <CardView
-                          card={card}
-                          size="dummy"
-                          isPlayable={isPlayable}
-                          isHighlighted={isPlayable}
-                          onClick={() => {
-                            if (canIPlayDummy && isPlayable && onPlayCard) onPlayCard(card.id);
-                          }}
-                        />
-                      </div>
-                    );
-                  })
-                )}
+            <div
+              key={suit}
+              className={`flex items-center min-w-0 ${sIdx > 0 ? '-mt-7 land:-mt-8 sm:-mt-5' : ''}`}
+              style={{ zIndex: sIdx + 1 }}
+            >
+              <div className="flex items-center w-full overflow-visible">
+                {cards.map((card, idx) => {
+                  const isLast = idx === cards.length - 1;
+                  const isPlayable = canIPlayDummy && isCardLegal(card, dummyHand, leadCardSuit);
+                  return (
+                    <div
+                      key={card.id}
+                      style={{ zIndex: idx + 1 }}
+                      className={
+                        isLast
+                          ? 'relative w-[60px] land:w-[50px] desk:w-[76px] shrink-0 flex justify-start'
+                          : 'relative flex-1 min-w-0 max-w-[34px] land:max-w-[30px] desk:max-w-[48px] flex justify-start overflow-visible'
+                      }
+                    >
+                      <CardView
+                        card={card}
+                        size="player"
+                        isPlayable={isPlayable}
+                        isHighlighted={isPlayable}
+                        onClick={() => {
+                          if (canIPlayDummy && isPlayable && onPlayCard) onPlayCard(card.id);
+                        }}
+                      />
+                    </div>
+                  );
+                })}
               </div>
             </div>
           );

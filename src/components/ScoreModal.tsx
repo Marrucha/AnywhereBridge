@@ -34,14 +34,30 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
     ? (scores.reduce((acc, c) => acc + (c.hcpEW ?? 0), 0) / scores.length).toFixed(1)
     : null;
 
-  const getVulLabel = (vul: string) => {
-    switch (vul) {
-      case 'NONE': return 'Obie przed';
-      case 'BOTH': return 'Obie po';
-      case 'NS': return 'NS po (WE przed)';
-      case 'EW': return 'EW po (NS przed)';
-      default: return vul;
-    }
+  const isDeclarerVulnerable = (declarer: string, vul: string) => {
+    if (vul === 'BOTH') return true;
+    if (vul === 'NONE') return false;
+    const isNS = declarer === 'N' || declarer === 'S';
+    return (isNS && vul === 'NS') || (!isNS && vul === 'EW');
+  };
+
+  const renderColoredContractStr = (str: string) => {
+    if (!str || str === 'PAS') return <span className="text-slate-300">PAS</span>;
+    const blackSpade: React.CSSProperties = {
+      color: '#020617',
+      textShadow: '-1px -1px 0 #ffffff, 1px -1px 0 #ffffff, -1px 1px 0 #ffffff, 1px 1px 0 #ffffff',
+    };
+    return (
+      <span className="inline-flex items-center gap-0.5 text-sm sm:text-base font-black">
+        {Array.from(str).map((ch, idx) => {
+          if (ch === '♣') return <span key={idx} className="text-green-500">♣</span>;
+          if (ch === '♦') return <span key={idx} className="text-orange-500">♦</span>;
+          if (ch === '♥') return <span key={idx} className="text-red-500">♥</span>;
+          if (ch === '♠') return <span key={idx} className="text-slate-950" style={blackSpade}>♠</span>;
+          return <span key={idx} className="text-white">{ch}</span>;
+        })}
+      </span>
+    );
   };
 
   return (
@@ -98,39 +114,37 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
               <p className="text-xs text-slate-600 mt-1">Po zakończeniu każdego rozdania wynik pojawi się tutaj automatycznie.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs sm:text-sm">
+            <div className="w-full overflow-x-hidden">
+              <table className="w-full text-left text-sm sm:text-base table-auto">
                 <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 font-semibold uppercase tracking-wider text-[10px] sm:text-[11px]">
+                  <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-tight text-xs sm:text-sm">
                     <th className="pb-2 pl-2">Rozd.</th>
-                    <th className="pb-2">Założenia</th>
-                    <th className="pb-2">Kontrakt</th>
-                    <th className="pb-2">PC (NS : EW)</th>
-                    <th className="pb-2">Oczekiwany zapis</th>
-                    <th className="pb-2 text-right">Zapis N-S</th>
-                    <th className="pb-2 text-right pr-2">IMP (N-S)</th>
+                    <th className="pb-2 px-2">Kontrakt</th>
+                    <th className="pb-2 px-2 text-center">PC (NS:WE)</th>
+                    <th className="pb-2 px-2 text-right">Zapis N-S</th>
+                    <th className="pb-2 pr-2 text-right">IMP</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 font-medium">
+                <tbody className="divide-y divide-slate-800/60 font-semibold text-sm sm:text-base">
                   {scores.map((rec) => {
                     const imp = rec.impNS ?? 0;
+                    const isVul = isDeclarerVulnerable(rec.declarer, rec.vulnerability);
                     return (
                       <tr key={rec.id} className="hover:bg-slate-800/30 transition">
-                        <td className="py-2 pl-2 font-bold text-amber-400 font-mono">#{rec.boardNumber}</td>
-                        <td className="py-2 text-slate-300 text-[11px]">{getVulLabel(rec.vulnerability)}</td>
-                        <td className="py-2 font-bold text-slate-100">
-                          {rec.contractStr} <span className="text-[11px] text-slate-400 font-normal">({rec.declarer})</span>
+                        <td className="py-2.5 pl-2 font-black text-amber-400 font-mono">#{rec.boardNumber}</td>
+                        <td className="py-2.5 px-2 font-black text-slate-100 whitespace-nowrap">
+                          {renderColoredContractStr(rec.contractStr)}{' '}
+                          <span className={`text-sm sm:text-base font-black ml-0.5 ${isVul ? 'text-red-500' : 'text-white'}`}>
+                            ({rec.declarer})
+                          </span>
                         </td>
-                        <td className="py-2 text-slate-300 font-mono">
-                          {rec.hcpNS !== undefined ? `${rec.hcpNS} : ${rec.hcpEW}` : '—'}
+                        <td className="py-2.5 px-2 text-center text-slate-200 font-mono font-bold whitespace-nowrap">
+                          {rec.hcpNS !== undefined ? `${rec.hcpNS}:${rec.hcpEW}` : '—'}
                         </td>
-                        <td className="py-2 text-slate-400 text-[11px] truncate max-w-[170px]" title={rec.expectedContractDesc || ''}>
-                          {rec.expectedContractDesc || '—'}
-                        </td>
-                        <td className={`py-2 text-right font-bold font-mono ${rec.scoreNS >= 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                        <td className={`py-2.5 px-2 text-right font-black font-mono whitespace-nowrap ${rec.scoreNS >= 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
                           {rec.scoreNS >= 0 ? `+${rec.scoreNS}` : rec.scoreNS}
                         </td>
-                        <td className={`py-2 text-right pr-2 font-mono font-black ${
+                        <td className={`py-2.5 pr-2 text-right font-mono font-black whitespace-nowrap ${
                           imp > 0 ? 'text-emerald-400' : imp < 0 ? 'text-rose-400' : 'text-slate-400'
                         }`}>
                           {imp > 0 ? `+${imp}` : imp}
@@ -139,19 +153,17 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
                     );
                   })}
                 </tbody>
-                <tfoot className="border-t-2 border-amber-400/80 bg-slate-950 font-bold">
+                <tfoot className="border-t-2 border-amber-400/80 bg-slate-950 font-bold text-sm sm:text-base">
                   <tr>
                     <td className="py-2.5 pl-2 text-amber-400 font-black">RAZEM</td>
-                    <td className="py-2.5 text-slate-400 text-[11px]">{scores.length} rozdań</td>
-                    <td className="py-2.5 text-slate-300 text-xs">Bilans</td>
-                    <td className="py-2.5 text-slate-300 font-mono text-xs">
-                      {avgHcpNS && avgHcpEW ? `${avgHcpNS} : ${avgHcpEW}` : '—'}
+                    <td className="py-2.5 px-2 text-slate-300 text-xs sm:text-sm">Bilans ({scores.length})</td>
+                    <td className="py-2.5 px-2 text-center text-slate-200 font-mono text-xs sm:text-sm font-bold whitespace-nowrap">
+                      {avgHcpNS && avgHcpEW ? `${avgHcpNS}:${avgHcpEW}` : '—'}
                     </td>
-                    <td className="py-2.5 text-slate-400 text-[11px]">Suma punktów</td>
-                    <td className={`py-2.5 text-right font-black font-mono ${totalNS >= 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
+                    <td className={`py-2.5 px-2 text-right font-black font-mono whitespace-nowrap ${totalNS >= 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
                       {totalNS >= 0 ? `+${totalNS}` : totalNS}
                     </td>
-                    <td className={`py-2.5 text-right pr-2 font-mono font-black text-sm ${
+                    <td className={`py-2.5 pr-2 text-right font-mono font-black text-base whitespace-nowrap ${
                       totalImpNS > 0 ? 'text-emerald-400' : totalImpNS < 0 ? 'text-rose-400' : 'text-slate-400'
                     }`}>
                       {totalImpNS > 0 ? `+${totalImpNS}` : totalImpNS}
@@ -159,57 +171,6 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
                   </tr>
                 </tfoot>
               </table>
-
-              {/* Podsumowanie końcowe na dole tabeli wyników */}
-              <div className="mt-4 p-3.5 sm:p-4 rounded-xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border-2 border-amber-400/90 shadow-xl">
-                <div className="flex items-center justify-between flex-wrap gap-2 pb-2.5 border-b border-slate-800">
-                  <div className="flex items-center gap-2">
-                    <Award className="w-5 h-5 text-amber-400" />
-                    <div>
-                      <h4 className="font-black text-sm sm:text-base text-white">
-                        Podsumowanie Końcowe ({scores.length} {scores.length === 1 ? 'rozdanie' : scores.length < 5 ? 'rozdania' : 'rozdań'})
-                      </h4>
-                      <p className="text-[11px] text-slate-400">Oficjalny protokół zapisu brydżowego (Milton PC & WBF IMP)</p>
-                    </div>
-                  </div>
-                  <span className={`text-xs font-black px-3 py-1 rounded-full border ${
-                    totalImpNS > 0 
-                      ? 'bg-emerald-950 text-emerald-300 border-emerald-500/60' 
-                      : totalImpNS < 0 
-                      ? 'bg-rose-950 text-rose-300 border-rose-500/60' 
-                      : 'bg-slate-800 text-slate-300 border-slate-600'
-                  }`}>
-                    {totalImpNS > 0 ? `🏆 Prowadzenie N-S: +${totalImpNS} IMP` : totalImpNS < 0 ? `🏆 Prowadzenie E-W: +${Math.abs(totalImpNS)} IMP` : '🤝 REMIS'}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-3 text-center text-xs">
-                  <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
-                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Bilans IMP (N-S)</span>
-                    <span className={`text-base sm:text-lg font-black font-mono ${totalImpNS >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                      {totalImpNS >= 0 ? `+${totalImpNS}` : totalImpNS} <span className="text-xs">IMP</span>
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
-                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Bilans IMP (E-W)</span>
-                    <span className={`text-base sm:text-lg font-black font-mono ${totalImpEW >= 0 ? 'text-amber-400' : 'text-slate-400'}`}>
-                      {totalImpEW >= 0 ? `+${totalImpEW}` : totalImpEW} <span className="text-xs">IMP</span>
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
-                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Zapis łączny (N-S)</span>
-                    <span className={`text-base sm:text-lg font-black font-mono ${totalNS >= 0 ? 'text-emerald-400' : 'text-slate-400'}`}>
-                      {totalNS >= 0 ? `+${totalNS}` : totalNS} <span className="text-xs">pkt</span>
-                    </span>
-                  </div>
-                  <div className="p-2.5 rounded-lg bg-slate-900/90 border border-slate-800">
-                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">Zapis łączny (E-W)</span>
-                    <span className={`text-base sm:text-lg font-black font-mono ${totalEW >= 0 ? 'text-amber-400' : 'text-slate-400'}`}>
-                      {totalEW >= 0 ? `+${totalEW}` : totalEW} <span className="text-xs">pkt</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -278,9 +239,9 @@ export const ScoreModal: React.FC<ScoreModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs sm:text-sm font-semibold rounded-lg transition"
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs sm:text-sm font-black rounded-lg shadow transition active:scale-95"
           >
-            Zamknij
+            ↩️ Podsumowanie rozdania
           </button>
         </div>
       </div>

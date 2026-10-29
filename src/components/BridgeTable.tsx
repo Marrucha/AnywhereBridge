@@ -10,6 +10,7 @@ import { PlayerHandView } from './PlayerHandView';
 import { LobbyOverlay } from './LobbyOverlay';
 import { TrickCenterView } from './TrickCenterView';
 import { UndoRequestBanner } from './UndoRequestBanner';
+import { LandscapeSidePanel } from './LandscapeSidePanel';
 import { DdsTableResult } from '../logic/dds';
 import { isCardLegal } from '../logic/play';
 import { formatContractString } from '../logic/scoring';
@@ -119,8 +120,9 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
 
   const isMyTurn = !isUndoPending && mySeat !== null && effectiveTurn === mySeat;
   const isDummyTurn = !isUndoPending && dummySeat !== null && effectiveTurn === dummySeat;
-  // In bridge, declarer plays the dummy's cards on dummy's turn!
-  const canIPlayDummy = !isUndoPending && mySeat !== null && declarerSeat === mySeat && isDummyTurn;
+  // In bridge, declarer (or dummy seat player on their screen) plays the dummy's cards on dummy's turn!
+  const canIPlayDummy =
+    !isUndoPending && mySeat !== null && (declarerSeat === mySeat || dummySeat === mySeat) && isDummyTurn;
 
   const leadCardSuit =
     currentTrick.cards.length > 0 && currentTrick.cards.length < 4
@@ -194,7 +196,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           onCollectTrick();
         }
       }}
-      className="relative w-full h-full flex flex-col justify-between p-1 sm:p-2.5 select-none overflow-hidden cursor-default"
+      className="relative w-full h-full flex flex-col justify-between p-1 sm:p-2.5 landscape:p-0.5 select-none overflow-hidden cursor-default"
     >
       {/* UNDO REQUEST MODAL & NOTICE TOAST */}
       <UndoRequestBanner
@@ -229,22 +231,19 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             e.stopPropagation();
             setShowResultModal(true);
           }}
-          className="bg-emerald-600/90 hover:bg-emerald-500 text-white px-3 py-1 rounded-xl text-center cursor-pointer transition shadow-lg border border-emerald-400/50 mb-0.5 flex items-center justify-between text-xs sm:text-sm animate-pulse shrink-0"
+          className="bg-emerald-600/95 hover:bg-emerald-500 text-white px-4 py-1.5 rounded-xl text-center cursor-pointer transition shadow-lg border border-emerald-400/60 mb-0.5 flex items-center justify-center gap-2 text-xs sm:text-sm font-black shrink-0"
         >
-          <span className="font-bold">🏁 Koniec: {lastResult.resultDetail}</span>
-          <span className="bg-emerald-950/80 px-2 py-0.5 rounded-lg text-[11px] font-semibold text-emerald-200">
-            {state.boardNumber % 8 === 0 ? '🏆 Zakończona 8! Protokół & DDS 📊' : 'Protokół & DDS 📊'}
-          </span>
+          <span>↩️ Powrót do protokołu (Podsumowanie rozdania #{state.boardNumber})</span>
         </div>
       )}
 
-      {/* MAIN LAYOUT: Column in Portrait, Row in Landscape when BIDDING (so Bidding Box is on the side of the table!) */}
-      <div className="flex-1 min-h-0 w-full flex flex-col landscape:flex-row items-stretch justify-between gap-1 overflow-hidden">
+      {/* MAIN LAYOUT: Column in Portrait, Row in Landscape (Left 3/4 square play area + Right 1/4 controls box) */}
+      <div className="flex-1 min-h-0 w-full flex flex-col landscape:flex-row items-stretch justify-between gap-1 landscape:gap-0.5 overflow-hidden">
         {/* TABLE COLUMN (Top Partner, Middle Felt + Left/Right Seats, Bottom Player Hand) */}
         <div className="flex-1 min-w-0 min-h-0 flex flex-col justify-between">
           {/* TOP: PARTNER SEAT (topSeat), INLINE SCORE PILLS & DUMMY CARDS */}
-          <div className="w-full flex flex-col items-center gap-0.5 shrink-0">
-            <div className="w-full flex items-center justify-center flex-wrap gap-1.5 px-1">
+          <div className="w-full relative z-30 flex flex-col items-center gap-0.5 shrink-0">
+            <div className="w-full flex items-center justify-center flex-wrap gap-1.5 px-1 landscape:hidden">
               {/* N-S Tricks compact pill (during play) */}
               {phase === 'PLAYING' && contract && (
                 <div className={`flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold border ${
@@ -260,7 +259,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
                 </div>
               )}
 
-              {/* Top Partner Seat Badge (with inline hidden card count so no 2nd bar is needed!) */}
+              {/* Top Partner Seat Badge */}
               <div className={`px-2.5 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border transition flex items-center gap-1 ${
                 currentTurn === topSeat || currentBidder === topSeat
                   ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
@@ -330,12 +329,12 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               )}
             </div>
 
-            {/* TOP HAND: During PLAYING, ALWAYS show Dummy's cards at the top in full-width large size ("player", exact same size as your hand!) */}
+            {/* TOP HAND: During PLAYING, ALWAYS show Dummy's cards at the top */}
             {((phase === 'PLAYING' && dummySeat && dummySeat !== bottomSeat && dummyHand && dummyHand.length > 0) ||
               (phase === 'BOARD_RESULT' && (state.dealHands?.[topSeat] || (dummySeat === topSeat && dummyHand)))) && (
               <div className="w-full">
                 {phase === 'PLAYING' && dummySeat && dummySeat !== topSeat && (
-                  <div className="text-center text-[10px] font-black text-cyan-300 leading-none pb-0.5">
+                  <div className="text-center text-[10px] font-black text-cyan-300 leading-none pb-0.5 landscape:hidden">
                     🂠 Karty Dziadka ({dummySeat}: {seats[dummySeat]?.name || SEAT_NAMES[dummySeat]})
                   </div>
                 )}
@@ -354,69 +353,69 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             )}
           </div>
 
-          {/* MIDDLE SECTION: LEFT OPPONENT (leftSeat), TALL FELT TABLE, RIGHT OPPONENT (rightSeat) */}
-          <div className="flex-1 min-h-0 flex items-center justify-between my-0.5 relative">
-            <div className="flex flex-col items-center justify-center shrink-0">
-              {renderSideSeat(leftSeat)}
-            </div>
+          {/* MIDDLE SECTION: LEFT OPPONENT (leftSeat), TALL SQUARE-ISH FELT TABLE, RIGHT OPPONENT (rightSeat) */}
+          <div className="flex-1 min-h-0 flex items-center justify-center my-0.5 relative z-10">
+            {phase === 'BOARD_RESULT' ? (
+              <div className="w-full h-full grid grid-cols-2 gap-1.5 sm:gap-3 items-center px-1">
+                {renderSideSeat(leftSeat)}
+                {renderSideSeat(rightSeat)}
+              </div>
+            ) : (
+              <>
+                <div className={`flex flex-col items-center justify-center shrink-0 ${phase === 'PLAYING' ? 'landscape:hidden' : ''}`}>
+                  {renderSideSeat(leftSeat)}
+                </div>
 
-            {/* FELT CENTER - Tall full-height felt table with no max-h cap */}
-            <div
-              onClick={() => {
-                if (phase === 'PLAYING' && currentTrick.cards.length === 4 && onCollectTrick) {
-                  onCollectTrick();
-                }
-              }}
-              className={`flex-1 self-stretch max-w-2xl mx-1 sm:mx-2 bg-felt/90 border-2 sm:border-4 border-amber-900/40 rounded-2xl p-1 sm:p-2 shadow-inner relative min-h-[190px] land:min-h-[150px] desk:min-h-[240px] flex flex-col items-center justify-center ${
-                currentTrick.cards.length === 4 ? 'cursor-pointer' : ''
-              }`}
-            >
-              {phase === 'BIDDING' && (
-                <>
-                  <div className="w-full landscape:hidden">
-                    <BiddingTray dealer={dealer} bids={bids} />
-                  </div>
-                  <div className="hidden landscape:flex flex-col items-center justify-center text-center gap-1">
-                    <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
-                      Trwa licytacja • Rozdanie #{state.boardNumber}
-                    </span>
-                    <span className="text-xs text-slate-300">
-                      Rozdaje: <strong className="text-white">{SEAT_NAMES[dealer]}</strong> • Założenia: <strong className="text-amber-300">{formatVulnerabilityPl(vulnerability)}</strong>
-                    </span>
-                    <span className="text-[11px] text-emerald-300 font-semibold">
-                      👉 Panel licytacji po prawej stronie stołu
-                    </span>
-                  </div>
-                </>
-              )}
+                {/* FELT CENTER - Tall full-height felt table with generous space to lay 4 cards */}
+                <div
+                  onClick={() => {
+                    if (phase === 'PLAYING' && currentTrick.cards.length === 4 && onCollectTrick) {
+                      onCollectTrick();
+                    }
+                  }}
+                  className={`flex-1 self-stretch max-w-xl mx-1 sm:mx-2 bg-felt/90 border-2 sm:border-4 border-amber-900/40 rounded-2xl p-1 sm:p-2 shadow-inner relative min-h-[110px] land:min-h-[80px] desk:min-h-[220px] flex flex-col items-center justify-center ${
+                    currentTrick.cards.length === 4 ? 'cursor-pointer' : ''
+                  }`}
+                >
+                  {phase === 'BIDDING' && (
+                    <>
+                      <div className="w-full landscape:hidden">
+                        <BiddingTray dealer={dealer} bids={bids} />
+                      </div>
+                      <div className="hidden landscape:flex flex-col items-center justify-center text-center gap-1">
+                        <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400">
+                          Trwa licytacja • Rozdanie #{state.boardNumber}
+                        </span>
+                        <span className="text-xs text-slate-300">
+                          Rozdaje: <strong className="text-white">{SEAT_NAMES[dealer]}</strong> • Założenia: <strong className="text-amber-300">{formatVulnerabilityPl(vulnerability)}</strong>
+                        </span>
+                        <span className="text-[11px] text-emerald-300 font-semibold">
+                          👉 Panel licytacji po prawej stronie stołu
+                        </span>
+                      </div>
+                    </>
+                  )}
 
-              <TrickCenterView
-                phase={phase}
-                lastResult={lastResult}
-                boardNumber={state.boardNumber}
-                contract={contract}
-                declarerSeat={declarerSeat}
-                currentTrick={currentTrick}
-                seatNames={SEAT_NAMES}
-                topSeat={topSeat}
-                bottomSeat={bottomSeat}
-                leftSeat={leftSeat}
-                rightSeat={rightSeat}
-                onCollectTrick={onCollectTrick}
-                onOpenResultModal={() => setShowResultModal(true)}
-                onNextBoard={onNextBoard}
-                onStartNewEight={onStartNewEight}
-              />
-            </div>
+                  <TrickCenterView
+                    phase={phase} lastResult={lastResult} boardNumber={state.boardNumber}
+                    contract={contract} declarerSeat={declarerSeat} currentTrick={currentTrick}
+                    seatNames={SEAT_NAMES} topSeat={topSeat} bottomSeat={bottomSeat}
+                    leftSeat={leftSeat} rightSeat={rightSeat} onCollectTrick={onCollectTrick}
+                    onOpenResultModal={() => setShowResultModal(true)}
+                    onNextBoard={onNextBoard} onStartNewEight={onStartNewEight}
+                  />
+                </div>
 
-            <div className="flex flex-col items-center justify-center shrink-0">
-              {renderSideSeat(rightSeat)}
-            </div>
+                <div className={`flex flex-col items-center justify-center shrink-0 ${phase === 'PLAYING' ? 'landscape:hidden' : ''}`}>
+                  {renderSideSeat(rightSeat)}
+                </div>
+              </>
+            )}
           </div>
 
           {/* BOTTOM SECTION: MY SEAT (bottomSeat) / PORTRAIT BIDDING CONTROLS & MY HAND */}
-          <div className="flex flex-col items-center w-full space-y-0.5 shrink-0">
-            <div className={`px-3 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border transition shrink-0 ${
+          <div className="relative z-30 flex flex-col items-center w-full space-y-0.5 shrink-0">
+            <div className={`landscape:hidden px-3 py-0.5 rounded-full text-[11px] sm:text-xs font-bold border transition shrink-0 ${
               currentTurn === bottomSeat || currentBidder === bottomSeat
                 ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400'
                 : isSeatVul(bottomSeat)
@@ -438,10 +437,8 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
             {phase === 'BIDDING' && (
               <div className="w-full landscape:hidden">
                 <BiddingBox
-                  bids={bids}
-                  currentBidder={currentBidder}
-                  mySeat={isUndoPending ? null : mySeat}
-                  onMakeBid={onMakeBid}
+                  bids={bids} currentBidder={currentBidder}
+                  mySeat={isUndoPending ? null : mySeat} onMakeBid={onMakeBid}
                 />
               </div>
             )}
@@ -451,8 +448,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
                 hand={bottomHandToDisplay}
                 isMyTurn={phase === 'PLAYING' ? isMyTurn : false}
                 canIPlayDummy={phase === 'PLAYING' ? canIPlayDummy : false}
-                currentTurn={currentTurn}
-                phase={phase}
+                currentTurn={currentTurn} phase={phase}
                 leadCardSuit={phase === 'PLAYING' ? leadCardSuit : null}
                 onPlayCard={phase === 'PLAYING' ? onPlayCard : () => {}}
                 mySeat={bottomSeat}
@@ -463,18 +459,15 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           </div>
         </div>
 
-        {/* LANDSCAPE SIDE BIDDING PANEL (Shown on the right side of the table in Landscape mode during BIDDING!) */}
-        {phase === 'BIDDING' && (
-          <div className="hidden landscape:flex landscape:flex-col landscape:w-[270px] desk:landscape:w-[310px] shrink-0 h-full justify-center gap-1.5 pl-1 border-l border-slate-800/70 overflow-y-auto">
-            <BiddingTray dealer={dealer} bids={bids} />
-            <BiddingBox
-              bids={bids}
-              currentBidder={currentBidder}
-              mySeat={isUndoPending ? null : mySeat}
-              onMakeBid={onMakeBid}
-            />
-          </div>
-        )}
+        {/* LANDSCAPE RIGHT 1/4 BOX (Cofnij, Czat, Zliczanie lew, Licytacja) */}
+        <LandscapeSidePanel
+          phase={phase} boardNumber={state.boardNumber} dealer={dealer}
+          vulnerability={vulnerability} bids={bids} currentBidder={currentBidder}
+          mySeat={mySeat} bottomSeat={bottomSeat} isUndoPending={isUndoPending}
+          canUndoMove={canUndoMove} contract={contract} tricksWonNS={tricksWonNS}
+          tricksWonEW={tricksWonEW} effectiveTurn={effectiveTurn} onMakeBid={onMakeBid}
+          onRequestUndo={onRequestUndo} onOpenChat={onOpenChat} onOpenScores={onOpenScores}
+        />
       </div>
 
       {/* FLOATING RECENT CHAT BUBBLE OVER TABLE */}

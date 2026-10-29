@@ -10,10 +10,10 @@ interface BiddingBoxProps {
 }
 
 const SUITS: { suit: TrumpSuit; label: string; color: string }[] = [
-  { suit: 'C', label: '♣', color: 'text-emerald-800' },
-  { suit: 'D', label: '♦', color: 'text-amber-600' },
-  { suit: 'H', label: '♥', color: 'text-rose-600' },
-  { suit: 'S', label: '♠', color: 'text-slate-900' },
+  { suit: 'C', label: '♣', color: 'text-green-600' },
+  { suit: 'D', label: '♦', color: 'text-orange-500' },
+  { suit: 'H', label: '♥', color: 'text-red-600' },
+  { suit: 'S', label: '♠', color: 'text-slate-950' },
   { suit: 'NT', label: 'BA', color: 'text-indigo-900 font-extrabold' },
 ];
 
@@ -72,7 +72,7 @@ export const BiddingBox: React.FC<BiddingBoxProps> = ({
             key={lvl}
             type="button"
             onClick={() => handleLevelClick(lvl)}
-            className={`py-1 land:py-1 desk:py-1.5 text-xs desk:text-sm font-black rounded-lg border transition-all ${
+            className={`py-1.5 land:py-1 desk:py-2 text-sm sm:text-base font-black rounded-lg border transition-all ${
               selectedLevel === lvl
                 ? 'bg-amber-500 border-amber-300 text-slate-950 scale-105 shadow-md'
                 : 'bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700'
@@ -94,13 +94,14 @@ export const BiddingBox: React.FC<BiddingBoxProps> = ({
                 type="button"
                 disabled={!isLegal}
                 onClick={() => handleSuitClick(suit)}
-                className={`py-1.5 px-1 rounded-lg border font-bold text-sm desk:text-base flex items-center justify-center transition-all bg-white shadow ${
+                className={`py-1.5 px-1 rounded-lg border font-black text-base sm:text-lg flex items-center justify-center transition-all bg-white shadow ${
                   isLegal
                     ? 'border-slate-300 hover:scale-105 active:scale-95 cursor-pointer'
                     : 'opacity-30 border-slate-400 cursor-not-allowed bg-slate-200'
                 }`}
               >
-                <span className={color}>{selectedLevel}{label}</span>
+                <span className="text-slate-950">{selectedLevel}</span>
+                <span className={color}>{label}</span>
               </button>
             );
           })}
