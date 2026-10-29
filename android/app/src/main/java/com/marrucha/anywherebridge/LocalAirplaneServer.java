@@ -100,7 +100,7 @@ public class LocalAirplaneServer extends NanoWSD {
         super(PORT);
         this.context = context;
         initSeats();
-        setupBoard(1);
+        clearBoardStateForLobby();
         loadState();
     }
 
@@ -110,6 +110,34 @@ public class LocalAirplaneServer extends NanoWSD {
             hands.put(s, new ArrayList<>());
             dealHands.put(s, new ArrayList<>());
         }
+    }
+
+    private void clearBoardStateForLobby() {
+        this.boardNumber = 1;
+        this.dealer = DUPLICATE_BOARDS[0][0];
+        this.vulnerability = DUPLICATE_BOARDS[0][1];
+        for (String s : SEATS) {
+            if (hands.get(s) != null) hands.get(s).clear();
+            if (dealHands.get(s) != null) dealHands.get(s).clear();
+        }
+        bids.clear();
+        currentBidder = null;
+        contract = null;
+        declarerSeat = null;
+        dummySeat = null;
+        openingLeadMade = false;
+        currentTrick = new JSONObject();
+        try {
+            currentTrick.put("leadSeat", "N");
+            currentTrick.put("cards", new JSONArray());
+        } catch (Exception ignored) {}
+        pastTricks.clear();
+        tricksWonNS = 0;
+        tricksWonEW = 0;
+        currentTurn = null;
+        lastResult = null;
+        undoRequest = null;
+        undoNotice = null;
     }
 
     private void setupBoard(int boardNum) {
@@ -1271,9 +1299,9 @@ public class LocalAirplaneServer extends NanoWSD {
                 }
                 s.put("seats", seatsObj);
 
-                // My hand
+                // My hand (only dealt and sent after game starts, never in LOBBY)
                 JSONArray myHandArr = new JSONArray();
-                if (ws.seat != null && hands.get(ws.seat) != null) {
+                if (!"LOBBY".equals(phase) && ws.seat != null && hands.get(ws.seat) != null) {
                     for (String cId : hands.get(ws.seat)) {
                         JSONObject cObj = new JSONObject();
                         cObj.put("id", cId);
@@ -1362,7 +1390,7 @@ public class LocalAirplaneServer extends NanoWSD {
     public synchronized void resetRoom() {
         phase = "LOBBY";
         initSeats();
-        setupBoard(1);
+        clearBoardStateForLobby();
         history.clear();
         deleteStateFile();
 

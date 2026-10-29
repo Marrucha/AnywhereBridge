@@ -154,9 +154,11 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
   }, [phase, state.boardNumber]);
 
   const bottomHandToDisplay =
-    phase === 'BOARD_RESULT'
-      ? (state.dealHands?.[bottomSeat] || myHand)
-      : (myHand && myHand.length > 0 ? myHand : (dummySeat === bottomSeat && dummyHand ? dummyHand : []));
+    phase === 'LOBBY'
+      ? []
+      : phase === 'BOARD_RESULT'
+        ? (state.dealHands?.[bottomSeat] || myHand)
+        : (myHand && myHand.length > 0 ? myHand : (dummySeat === bottomSeat && dummyHand ? dummyHand : []));
 
   const getCleanPlayerName = (seat: Seat): string => {
     const raw = seats[seat]?.name || 'Pusto';
@@ -242,7 +244,8 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
         />
       )}
 
-      {/* MAIN LAYOUT: Column in Portrait, Row in Landscape (Left 3/4 square play area + Right 1/4 controls box) */}
+      {/* MAIN LAYOUT: Only rendered once a deal is started (never in LOBBY) */}
+      {phase !== 'LOBBY' && (
       <div className="flex-1 min-h-0 w-full flex flex-col landscape:flex-row items-stretch justify-between gap-1 landscape:gap-0.5 overflow-hidden">
         {/* TABLE COLUMN (Top Partner, Middle Felt + Left/Right Seats, Bottom Player Hand) */}
         <div className="flex-1 min-w-0 min-h-0 flex flex-col justify-between">
@@ -446,6 +449,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           onOpenBiddingReview={() => setShowBiddingModal(true)}
         />
       </div>
+      )}
 
       {/* 2-SECOND CHAT POPUP OVER TABLE */}
       {latestChatMessage && (

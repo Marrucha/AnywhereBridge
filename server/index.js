@@ -219,7 +219,8 @@ class BridgeRoom {
 
   reset() {
     this.boardNumber = 1;
-    this.setupBoard(1);
+    this.dealer = DUPLICATE_BOARDS[0].dealer;
+    this.vulnerability = DUPLICATE_BOARDS[0].vulnerability;
     this.phase = 'LOBBY';
     this.seats = { N: null, E: null, S: null, W: null };
     this.bids = [];
@@ -395,8 +396,8 @@ function broadcastRoom(roomId) {
         // Client receives:
         // - their own hand
         // - dummy hand ONLY if dummy is exposed (opening lead made)
-        const myHand = seat && room.hands[seat] ? room.hands[seat] : [];
-        const dummyHand = room.dummySeat && room.openingLeadMade ? room.hands[room.dummySeat] : null;
+        const myHand = room.phase !== 'LOBBY' && seat && room.hands[seat] ? room.hands[seat] : [];
+        const dummyHand = room.phase !== 'LOBBY' && room.dummySeat && room.openingLeadMade ? room.hands[room.dummySeat] : null;
 
         const maskedState = {
           roomId: room.roomId,
