@@ -168,7 +168,7 @@ export const App: React.FC = () => {
 
         ws.onopen = () => {
           setConnected(true);
-          // Send join message
+          // Send join message (server automatically restores seat by playerId or assigns first free seat N/E/S/W)
           const joinMsg: ClientMessage = {
             type: 'join',
             roomId,
@@ -176,12 +176,6 @@ export const App: React.FC = () => {
             playerName: playerNameRef.current,
           };
           ws.send(JSON.stringify(joinMsg));
-
-          // Auto-resume seat if previously held
-          const prevSeat = getStoredSeat();
-          if (prevSeat) {
-            ws.send(JSON.stringify({ type: 'take_seat', seat: prevSeat }));
-          }
         };
 
         ws.onmessage = (event) => {
@@ -285,7 +279,7 @@ export const App: React.FC = () => {
   };
 
   const handleStartGame = () => {
-    if (isBotGame || !connected || !wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+    if (isBotGame) {
       startBotGame(mySeat || 'S', (localScores.length % 8) + 1);
     } else {
       sendMessage({ type: 'start_game' });

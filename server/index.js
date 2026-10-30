@@ -506,6 +506,28 @@ wss.on('connection', (ws) => {
   });
 });
 
+function assignFirstAvailableSeatInRoom(room, ws, info) {
+  if (!room || !info || !info.playerId) return null;
+  for (const s of SEAT_ORDER) {
+    if (room.seats[s]?.id === info.playerId) {
+      info.seat = s;
+      room.seats[s].connected = true;
+      if (info.playerName) room.seats[s].name = info.playerName;
+      clientSockets.set(ws, info);
+      return s;
+    }
+  }
+  for (const s of SEAT_ORDER) {
+    if (!room.seats[s] || room.seats[s].isBot) {
+      room.seats[s] = { id: info.playerId, name: info.playerName || 'Gracz', connected: true, isBot: false };
+      info.seat = s;
+      clientSockets.set(ws, info);
+      return s;
+    }
+  }
+  return null;
+}
+
 function handleMessage(ws, msg) {
   let info = clientSockets.get(ws);
   if (msg.type === '__bot_bid') {
@@ -518,7 +540,6 @@ function handleMessage(ws, msg) {
     const room = getOrCreateRoom(roomId);
     if (!room.hostId) room.hostId = msg.playerId;
 
-    // Check if player had a seat
     let seat = null;
     for (const s of SEAT_ORDER) {
       if (room.seats[s]?.id === msg.playerId) {
@@ -529,7 +550,11 @@ function handleMessage(ws, msg) {
       }
     }
 
-    clientSockets.set(ws, { playerId: msg.playerId, playerName: msg.playerName, roomId, seat });
+    const newInfo = { playerId: msg.playerId, playerName: msg.playerName, roomId, seat };
+    clientSockets.set(ws, newInfo);
+    if (!seat) {
+      assignFirstAvailableSeatInRoom(room, ws, newInfo);
+    }
     broadcastRoom(roomId);
     return;
   }
@@ -540,12 +565,34 @@ function handleMessage(ws, msg) {
 
   if (msg.type === 'take_seat') {
     const targetSeat = msg.seat;
-    if (SEAT_ORDER.includes(targetSeat) && !room.seats[targetSeat]) {
-      // Clear previous seat if any
-      if (info.seat) room.seats[info.seat] = null;
-      room.seats[targetSeat] = { id: info.playerId, name: info.playerName, connected: true };
+    if (!SEAT_ORDER.includes(targetSeat)) return;
+    const existing = room.seats[targetSeat];
+    const canTake = !existing || existing.isBot || existing.id === info.playerId;
+    if (canTake) {
+      if (info.seat && info.seat !== targetSeat && room.seats[info.seat]?.id === info.playerId) {
+        room.seats[info.seat] = null;
+      }
+      room.seats[targetSeat] = { id: info.playerId, name: info.playerName || 'Gracz', connected: true, isBot: false };
       info.seat = targetSeat;
       clientSockets.set(ws, info);
+      broadcastRoom(info.roomId);
+    } else if (room.phase === 'LOBBY' && info.seat && info.seat !== targetSeat && existing) {
+      // Swap seats in LOBBY
+      const prevSeat = info.seat;
+      const otherPlayerId = existing.id;
+      room.seats[targetSeat] = { id: info.playerId, name: info.playerName || 'Gracz', connected: true, isBot: false };
+      room.seats[prevSeat] = existing;
+      info.seat = targetSeat;
+      clientSockets.set(ws, info);
+      for (const [sWs, sInfo] of clientSockets.entries()) {
+        if (sInfo.roomId === info.roomId && sInfo.playerId === otherPlayerId) {
+          sInfo.seat = prevSeat;
+          clientSockets.set(sWs, sInfo);
+        }
+      }
+      broadcastRoom(info.roomId);
+    } else if (!info.seat) {
+      assignFirstAvailableSeatInRoom(room, ws, info);
       broadcastRoom(info.roomId);
     }
     return;
@@ -562,17 +609,21 @@ function handleMessage(ws, msg) {
   }
 
   if (msg.type === 'start_game') {
-    const seatedCount = SEAT_ORDER.filter(s => room.seats[s] !== null).length;
-    if (seatedCount >= 1) {
-      for (const s of SEAT_ORDER) {
-        if (!room.seats[s]) {
-          room.seats[s] = { id: `bot_${s}`, name: `Bot ${s}`, connected: true, isBot: true };
-        }
+    // First, ensure ALL connected human players in this room are seated at N, E, S, W!
+    for (const [sWs, sInfo] of clientSockets.entries()) {
+      if (sInfo.roomId === info.roomId && sWs.readyState === WebSocket.OPEN && sInfo.playerId) {
+        assignFirstAvailableSeatInRoom(room, sWs, sInfo);
       }
-      room.startBoard();
-      broadcastRoom(info.roomId);
-      scheduleBotTurn(info.roomId);
     }
+    // Only fill remaining truly empty seats with Bots (when fewer than 4 human players are in the room)
+    for (const s of SEAT_ORDER) {
+      if (!room.seats[s]) {
+        room.seats[s] = { id: `bot_${s}`, name: `Bot ${s}`, connected: true, isBot: true };
+      }
+    }
+    room.startBoard();
+    broadcastRoom(info.roomId);
+    scheduleBotTurn(info.roomId);
     return;
   }
 

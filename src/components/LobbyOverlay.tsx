@@ -158,7 +158,7 @@ export const LobbyOverlay: React.FC<LobbyOverlayProps> = ({
           )}
         </div>
 
-        {/* Seat selection grid */}
+        {/* Seat selection grid (click empty seat to take it, or click occupied seat to swap places!) */}
         <div className="grid grid-cols-2 gap-3 my-4">
           {(['N', 'E', 'S', 'W'] as Seat[]).map(seat => {
             const occupant = seats[seat];
@@ -167,22 +167,25 @@ export const LobbyOverlay: React.FC<LobbyOverlayProps> = ({
               <button
                 key={seat}
                 type="button"
-                disabled={occupant !== null && !isMine}
                 onClick={() => {
                   if (isMine) onLeaveSeat();
                   else onTakeSeat(seat);
                 }}
-                className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all ${
+                className={`p-3.5 rounded-xl border flex flex-col items-center justify-center transition-all cursor-pointer ${
                   isMine
                     ? 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-md ring-2 ring-amber-400'
                     : occupant
-                    ? 'bg-slate-800/50 border-slate-700 text-slate-400 opacity-70 cursor-not-allowed'
-                    : 'bg-emerald-950/40 border-emerald-600/50 text-emerald-200 hover:bg-emerald-900/50 hover:scale-102 cursor-pointer'
+                    ? 'bg-slate-800/80 hover:bg-slate-700/80 border-slate-600 text-slate-200'
+                    : 'bg-emerald-950/40 border-emerald-600/50 text-emerald-200 hover:bg-emerald-900/50 hover:scale-102'
                 }`}
               >
                 <span className="text-base sm:text-lg font-black">{seatNames[seat]}</span>
                 <span className="text-xs mt-1">
-                  {isMine ? 'Twoje miejsce (Kliknij by wstać)' : occupant ? occupant.name : 'Wolne miejsce'}
+                  {isMine
+                    ? 'Twoje miejsce (Kliknij by wstać)'
+                    : occupant
+                    ? `${occupant.name} (Kliknij by zamienić)`
+                    : 'Wolne miejsce'}
                 </span>
               </button>
             );
@@ -199,26 +202,29 @@ export const LobbyOverlay: React.FC<LobbyOverlayProps> = ({
           Pokaż kod QR dla współgraczy (Dołącz do pokoju {state.roomId})
         </button>
 
-        {/* Start Game Button: Works for 1, 2, 3, or 4 seated players (empty seats filled by server bots!) */}
-        {seatedCount >= 1 ? (
-          <button
-            type="button"
-            onClick={onStartGame}
-            className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 active:scale-98 text-slate-950 font-black text-sm sm:text-base rounded-xl transition shadow-lg flex items-center justify-center gap-2"
-          >
-            <Play className="w-5 h-5 fill-current shrink-0" />
-            <span>
-              {seatedCount === 4
-                ? `Rozpocznij Rozdanie #${state.boardNumber || 1} (4 graczy)`
-                : `Rozpocznij grę (${seatedCount} ${seatedCount === 1 ? 'gracz' : 'graczy'} + ${4 - seatedCount} ${4 - seatedCount === 1 ? 'Bot' : 'Boty'} 🤖)`}
-            </span>
-          </button>
-        ) : (
-          <div className="text-xs text-amber-300 bg-amber-950/40 border border-amber-500/50 p-3 rounded-xl flex items-center justify-center gap-2 font-bold">
-            <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
-            <span>👆 Wybierz swoje miejsce powyżej (N, E, S lub W), aby rozpocząć grę!</span>
-          </div>
-        )}
+        {/* Start Game Button: Automatically seats all connected human players in the room first! */}
+        {(() => {
+          const effectivePlayersCount = Math.min(4, Math.max(seatedCount, totalPlayersInRoom));
+          return effectivePlayersCount >= 1 ? (
+            <button
+              type="button"
+              onClick={onStartGame}
+              className="w-full py-3 px-4 bg-amber-500 hover:bg-amber-400 active:scale-98 text-slate-950 font-black text-sm sm:text-base rounded-xl transition shadow-lg flex items-center justify-center gap-2 cursor-pointer"
+            >
+              <Play className="w-5 h-5 fill-current shrink-0" />
+              <span>
+                {effectivePlayersCount === 4
+                  ? `Rozpocznij Rozdanie #${state.boardNumber || 1} (4 graczy)`
+                  : `Rozpocznij grę (${effectivePlayersCount} ${effectivePlayersCount === 1 ? 'gracz' : 'graczy'} + ${4 - effectivePlayersCount} ${4 - effectivePlayersCount === 1 ? 'Bot' : 'Boty'} 🤖)`}
+              </span>
+            </button>
+          ) : (
+            <div className="text-xs text-amber-300 bg-amber-950/40 border border-amber-500/50 p-3 rounded-xl flex items-center justify-center gap-2 font-bold">
+              <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+              <span>👆 Wybierz swoje miejsce powyżej (N, E, S lub W), aby rozpocząć grę!</span>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
