@@ -335,6 +335,7 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Connection', 'close');
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204);
@@ -500,13 +501,26 @@ wss.on('connection', (ws) => {
     if (info) {
       clientSockets.delete(ws);
       const room = rooms.get(info.roomId);
-      if (room && info.seat && room.seats[info.seat]?.id === info.playerId) {
-        room.seats[info.seat].connected = false;
-      }
-      broadcastRoom(info.roomId);
+      setTimeout(() => {
+        if (room && info.seat && room.seats[info.seat]?.id === info.playerId) {
+          if (!isSeatActivelyConnectedInRoom(info.roomId, info.seat, null)) {
+            room.seats[info.seat].connected = false;
+            broadcastRoom(info.roomId);
+          }
+        }
+      }, 1500);
     }
   });
 });
+
+// Periodic RFC 6455 WebSocket Ping every 10s
+setInterval(() => {
+  wss.clients.forEach((client) => {
+    if (client.readyState === WebSocket.OPEN) {
+      try { client.ping(); } catch (_) {}
+    }
+  });
+}, 10000);
 
 function isSeatActivelyConnectedInRoom(roomId, targetSeat, ignorePlayerId) {
   for (const [sWs, sInfo] of clientSockets.entries()) {
@@ -586,6 +600,16 @@ function handleMessage(ws, msg) {
     const roomId = msg.roomId || DEFAULT_ROOM_ID;
     const room = getOrCreateRoom(roomId);
     if (!room.hostId) room.hostId = msg.playerId;
+
+    // Cleanly close and detach any duplicate stale sockets for the same playerId
+    if (msg.playerId) {
+      for (const [sWs, sInfo] of clientSockets.entries()) {
+        if (sWs !== ws && sInfo.playerId === msg.playerId) {
+          clientSockets.delete(sWs);
+          try { sWs.close(1000, 'Replaced by new session'); } catch (_) {}
+        }
+      }
+    }
 
     const newInfo = { playerId: msg.playerId, playerName: msg.playerName, roomId, seat: null };
     clientSockets.set(ws, newInfo);

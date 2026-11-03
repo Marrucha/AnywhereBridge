@@ -12,14 +12,9 @@ import { EightBoardSummary } from './components/EightBoardSummary';
 import { useLocalBotGame } from './hooks/useLocalBotGame';
 import { calculateDealHcp, calculateBoardImp } from './logic/impScoring';
 import {
-  getStoredScores,
-  saveScoreRecord,
-  clearStoredScores,
-  getOrCreatePlayerId,
-  getStoredPlayerName,
-  saveStoredPlayerName,
-  getStoredSeat,
-  saveStoredSeat,
+  getStoredScores, saveScoreRecord, clearStoredScores,
+  getOrCreatePlayerId, getStoredPlayerName, saveStoredPlayerName,
+  getStoredSeat, saveStoredSeat,
 } from './storage/scores';
 
 const DEFAULT_ROOM_ID = 'air-737';
@@ -54,12 +49,8 @@ export const App: React.FC = () => {
     const stored = localStorage.getItem('anywhere_bridge_server_addr');
     if (stored) return stored;
     const h = window.location.hostname;
-    if (h.includes('web.app') || h.includes('firebaseapp') || h.includes('github.io')) {
-      return '192.168.43.1:8080';
-    }
-    if (h === 'localhost' || h === '127.0.0.1') {
-      return '127.0.0.1:8080';
-    }
+    if (h.includes('web.app') || h.includes('firebaseapp') || h.includes('github.io')) return '192.168.43.1:8080';
+    if (h === 'localhost' || h === '127.0.0.1') return '127.0.0.1:8080';
     return '';
   });
 
@@ -87,9 +78,7 @@ export const App: React.FC = () => {
     if (chatBubbleTimeoutRef.current) clearTimeout(chatBubbleTimeoutRef.current);
     chatBubbleTimeoutRef.current = setTimeout(() => {
       setLatestChatMessage(null);
-      if (!isChatOpenRef.current) {
-        setUnreadChatCount((prev) => prev + 1);
-      }
+      if (!isChatOpenRef.current) setUnreadChatCount((prev) => prev + 1);
     }, 2000);
   };
   const [localScores, setLocalScores] = useState<ScoreRecord[]>(() => getStoredScores());
@@ -100,34 +89,29 @@ export const App: React.FC = () => {
 
   // Local Bot game integration
   const {
-    localSession,
-    isBotGame,
-    ddsResult,
-    ddsLoading,
-    startBotGame,
-    stopBotGame,
-    makeBotGameBid,
-    playBotGameCard,
-    collectCompletedTrick,
-    undoBotGameMove,
-    nextBotGameBoard,
+    localSession, isBotGame, ddsResult, ddsLoading,
+    startBotGame, stopBotGame, makeBotGameBid, playBotGameCard,
+    collectCompletedTrick, undoBotGameMove, nextBotGameBoard,
   } = useLocalBotGame(mySeat, playerName, (record) => {
-    const updated = saveScoreRecord(record);
-    setLocalScores(updated);
+    setLocalScores(saveScoreRecord(record));
   });
+
+  const detachAndCloseSocket = (sock: WebSocket | null) => {
+    if (!sock) return;
+    sock.onopen = null; sock.onmessage = null; sock.onclose = null; sock.onerror = null;
+    try {
+      if (sock.readyState === WebSocket.OPEN || sock.readyState === WebSocket.CONNECTING) sock.close(1000, 'client_cleanup');
+    } catch (_) {}
+  };
 
   const isBotGameRef = useRef(isBotGame);
   useEffect(() => {
     isBotGameRef.current = isBotGame;
     if (isBotGame) {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-      if (wsRef.current) {
-        try { wsRef.current.close(); } catch (_) {}
-        wsRef.current = null;
-      }
+      if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
+      if (reconnectTimeoutRef.current) { clearTimeout(reconnectTimeoutRef.current); reconnectTimeoutRef.current = null; }
+      detachAndCloseSocket(wsRef.current);
+      wsRef.current = null;
       setConnected(false);
     }
   }, [isBotGame]);
@@ -135,29 +119,56 @@ export const App: React.FC = () => {
   const effectiveState = isBotGame && localSession ? localSession.state : roomState;
   const effectiveMySeat = isBotGame ? (mySeat || 'S') : mySeat;
 
-  // Auto-detect server info (IPs) for QR code
+  // Auto-detect server info (IPs) for QR code with strict AbortController timeout (no hanging sockets)
   useEffect(() => {
-    ['/api/info', 'http://127.0.0.1:8080/api/info', 'http://192.168.43.1:8080/api/info'].forEach(ep => {
-      fetch(ep).then(r => r.ok && r.json()).then(d => d?.serverIps && setDetectedIps(d.serverIps)).catch(() => {});
-    });
-  }, []);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 2200);
+    fetch('/api/info', { signal: ctrl.signal })
+      .then(r => r.ok && r.json())
+      .then(d => d?.serverIps && setDetectedIps(d.serverIps))
+      .catch(() => {})
+      .finally(() => clearTimeout(timer));
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, [isQROpen]);
 
-  // Connect to WebSocket (only when in multiplayer mode)
+  // Connect to WebSocket (single-instance guard, Ping-Pong watchdog, exponential backoff)
   useEffect(() => {
-    const connectWs = () => {
-      if (isBotGameRef.current) return;
+    let isActive = true;
+    let retryCount = 0;
+    let handshakeTimer: NodeJS.Timeout | null = null;
+    let lastActivity = Date.now();
+
+    const clearTimers = () => {
+      if (handshakeTimer) { clearTimeout(handshakeTimer); handshakeTimer = null; }
+      if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
+      if (reconnectTimeoutRef.current) { clearTimeout(reconnectTimeoutRef.current); reconnectTimeoutRef.current = null; }
+    };
+
+    const scheduleReconnect = () => {
+      if (!isActive || isBotGameRef.current) return;
+      clearTimers();
+      const baseDelay = Math.min(4000, 1000 * Math.pow(1.5, Math.min(retryCount, 4)));
+      const delay = Math.round(baseDelay + Math.random() * 250);
+      retryCount++;
+      reconnectTimeoutRef.current = setTimeout(() => connectWs(true), delay);
+    };
+
+    const connectWs = (forceNew = false) => {
+      if (!isActive || isBotGameRef.current) return;
+      if (!forceNew && wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
+        return;
+      }
+      clearTimers();
+      detachAndCloseSocket(wsRef.current);
+      wsRef.current = null;
+
       const loc = window.location;
       let targetHost = serverAddress;
       if (!targetHost) {
-        if (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1') {
-          targetHost = '127.0.0.1:8080';
-        } else if (loc.port === '3000') {
-          targetHost = `${loc.hostname}:8080`;
-        } else if (loc.port) {
-          targetHost = loc.host;
-        } else {
-          targetHost = '192.168.43.1:8080';
-        }
+        if (loc.hostname === 'localhost' || loc.hostname === '127.0.0.1') targetHost = '127.0.0.1:8080';
+        else if (loc.port === '3000') targetHost = `${loc.hostname}:8080`;
+        else if (loc.port) targetHost = loc.host;
+        else targetHost = '192.168.43.1:8080';
       }
       const protocol = loc.protocol === 'https:' && !targetHost.startsWith('192.168.') && !targetHost.startsWith('10.') && !targetHost.startsWith('localhost') && !targetHost.startsWith('127.0.0.1') ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${targetHost}`;
@@ -167,25 +178,50 @@ export const App: React.FC = () => {
         const ws = new WebSocket(wsUrl);
         wsRef.current = ws;
 
+        // Abort stuck CONNECTING handshakes after 7s
+        handshakeTimer = setTimeout(() => {
+          if (isActive && wsRef.current === ws && ws.readyState === WebSocket.CONNECTING) {
+            detachAndCloseSocket(ws);
+            wsRef.current = null;
+            setConnected(false);
+            scheduleReconnect();
+          }
+        }, 7000);
+
         ws.onopen = () => {
+          if (!isActive || wsRef.current !== ws) return;
+          if (handshakeTimer) { clearTimeout(handshakeTimer); handshakeTimer = null; }
+          retryCount = 0;
+          lastActivity = Date.now();
           setConnected(true);
-          const joinMsg: ClientMessage = {
+          ws.send(JSON.stringify({
             type: 'join',
             roomId,
             playerId,
             playerName: playerNameRef.current,
             preferredSeat: getStoredSeat(),
-          };
-          ws.send(JSON.stringify(joinMsg));
+          } as ClientMessage));
+
           if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
           pingIntervalRef.current = setInterval(() => {
+            if (!isActive || wsRef.current !== ws) return;
             if (ws.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ type: 'ping' }));
+              // Watchdog: only reconnect if server hasn't sent any packet/pong for > 25s
+              if (Date.now() - lastActivity > 25000) {
+                detachAndCloseSocket(ws);
+                wsRef.current = null;
+                setConnected(false);
+                scheduleReconnect();
+                return;
+              }
+              try { ws.send(JSON.stringify({ type: 'ping' })); } catch (_) {}
             }
-          }, 2500);
+          }, 3000);
         };
 
         ws.onmessage = (event) => {
+          if (!isActive || wsRef.current !== ws) return;
+          lastActivity = Date.now();
           try {
             const msg: ServerMessage = JSON.parse(event.data);
             if (msg.type === 'pong') return;
@@ -211,11 +247,8 @@ export const App: React.FC = () => {
                 setMySeat(msg.yourSeat);
                 saveStoredSeat(msg.yourSeat);
               }
-
-              // Sync score record to localStorage if fresh result
               if (msg.state.lastResult) {
-                const updated = saveScoreRecord(msg.state.lastResult);
-                setLocalScores(updated);
+                setLocalScores(saveScoreRecord(msg.state.lastResult));
               }
               if (msg.state.chatMessages && Array.isArray(msg.state.chatMessages)) {
                 setChatMessages((prev) => {
@@ -238,32 +271,40 @@ export const App: React.FC = () => {
         };
 
         ws.onclose = () => {
-          if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
-          setConnected(false);
+          if (!isActive || wsRef.current !== ws) return;
           wsRef.current = null;
-          // Fast reconnect (600ms) so mobile Wi-Fi hiccups never cause bidding delays
-          if (!isBotGameRef.current) {
-            reconnectTimeoutRef.current = setTimeout(connectWs, 600);
-          }
+          setConnected(false);
+          scheduleReconnect();
         };
 
         ws.onerror = () => {
-          // Quietly close without alarming console spam when multiplayer host is offline
-          try { ws.close(); } catch (_) {}
+          // Do not call ws.close() here; browser triggers onclose automatically
         };
       } catch (_) {
-        if (!isBotGameRef.current) {
-          reconnectTimeoutRef.current = setTimeout(connectWs, 600);
+        scheduleReconnect();
+      }
+    };
+
+    const handleVisibilityOrOnline = () => {
+      if (document.visibilityState === 'visible' && !isBotGameRef.current) {
+        if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED || wsRef.current.readyState === WebSocket.CLOSING) {
+          retryCount = 0;
+          connectWs(true);
         }
       }
     };
 
-    connectWs();
+    connectWs(true);
+    document.addEventListener('visibilitychange', handleVisibilityOrOnline);
+    window.addEventListener('online', handleVisibilityOrOnline);
 
     return () => {
-      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
-      if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-      if (wsRef.current) wsRef.current.close();
+      isActive = false;
+      document.removeEventListener('visibilitychange', handleVisibilityOrOnline);
+      window.removeEventListener('online', handleVisibilityOrOnline);
+      clearTimers();
+      detachAndCloseSocket(wsRef.current);
+      wsRef.current = null;
     };
   }, [roomId, playerId, serverAddress]);
 
@@ -276,9 +317,7 @@ export const App: React.FC = () => {
   const handleChangePlayerName = (newName: string) => {
     setPlayerName(newName);
     saveStoredPlayerName(newName);
-    if (!isBotGame) {
-      sendMessage({ type: 'join', roomId, playerId, playerName: newName });
-    }
+    if (!isBotGame) sendMessage({ type: 'join', roomId, playerId, playerName: newName });
   };
 
   const handleTakeSeat = (seat: Seat) => {
@@ -295,11 +334,8 @@ export const App: React.FC = () => {
   };
 
   const handleStartGame = () => {
-    if (isBotGame) {
-      startBotGame(mySeat || 'S', (localScores.length % 8) + 1);
-    } else {
-      sendMessage({ type: 'start_game' });
-    }
+    if (isBotGame) startBotGame(mySeat || 'S', (localScores.length % 8) + 1);
+    else sendMessage({ type: 'start_game' });
   };
 
   const handleMakeBid = (bid: any) => {
@@ -322,9 +358,7 @@ export const App: React.FC = () => {
     else sendMessage({ type: 'request_undo' });
   };
 
-  const handleRespondUndo = (accept: boolean) => {
-    sendMessage({ type: 'respond_undo', accept });
-  };
+  const handleRespondUndo = (accept: boolean) => sendMessage({ type: 'respond_undo', accept });
 
   const handleNextBoard = () => {
     const nextBoardNum = (localScores.length % 8) + 1;
@@ -358,18 +392,11 @@ export const App: React.FC = () => {
       text,
       timestamp: Date.now(),
     };
-
     if (connected && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      sendMessage({
-        type: 'chat',
-        text,
-        senderName: playerName || 'Gracz',
-        senderSeat: mySeat || 'S',
-      });
+      sendMessage({ type: 'chat', text, senderName: playerName || 'Gracz', senderSeat: mySeat || 'S' });
     } else {
       setChatMessages((prev) => [...prev, msg]);
       triggerChatPopup(msg);
-
       if (isBotGame) {
         setTimeout(() => {
           const botReplies = [
@@ -379,11 +406,7 @@ export const App: React.FC = () => {
           ];
           const reply = botReplies[Math.floor(Math.random() * botReplies.length)];
           const botMsg: ChatMessage = {
-            id: `c_bot_${Date.now()}`,
-            senderName: reply.name,
-            senderSeat: reply.seat,
-            text: reply.text,
-            timestamp: Date.now(),
+            id: `c_bot_${Date.now()}`, senderName: reply.name, senderSeat: reply.seat, text: reply.text, timestamp: Date.now(),
           };
           setChatMessages((prev) => [...prev, botMsg]);
           triggerChatPopup(botMsg);
@@ -393,7 +416,7 @@ export const App: React.FC = () => {
   };
 
   const handleUpdateConnection = (newServer: string, newRoom: string) => {
-    localStorage.setItem('anywhere_bridge_server_addr', newServer);
+    try { localStorage.setItem('anywhere_bridge_server_addr', newServer); } catch (_) {}
     setServerAddress(newServer);
     if (newRoom && newRoom !== roomId) {
       setRoomId(newRoom);
@@ -401,9 +424,6 @@ export const App: React.FC = () => {
       url.searchParams.set('room', newRoom);
       url.searchParams.set('server', newServer);
       window.history.replaceState({}, '', url.toString());
-    }
-    if (wsRef.current) {
-      wsRef.current.close();
     }
   };
 

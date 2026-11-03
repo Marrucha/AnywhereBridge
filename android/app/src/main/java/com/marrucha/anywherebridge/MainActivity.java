@@ -44,8 +44,8 @@ public class MainActivity extends BridgeActivity {
         if (server == null || !server.isAlive()) {
             try {
                 server = new LocalAirplaneServer(getApplicationContext());
-                // Use 0 (infinite socket read timeout) so NanoWSD never drops idle WebSocket connections after 5s!
-                server.start(0, false);
+                // Use 60000ms (60s) socket read timeout combined with 3s client ping & 10s server WS ping
+                server.start(60000, false);
                 Log.i(TAG, "LocalAirplaneServer started successfully on port " + LocalAirplaneServer.PORT);
             } catch (Exception e) {
                 Log.e(TAG, "Failed to start LocalAirplaneServer: " + e.getMessage(), e);

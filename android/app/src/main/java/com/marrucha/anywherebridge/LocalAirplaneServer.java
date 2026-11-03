@@ -102,6 +102,19 @@ public class LocalAirplaneServer extends NanoWSD {
         initSeats();
         clearBoardStateForLobby();
         loadState();
+        // Periodic RFC 6455 WebSocket Ping every 10s to keep mobile sockets alive
+        botExecutor.scheduleAtFixedRate(this::sendServerWebSocketPings, 10, 10, TimeUnit.SECONDS);
+    }
+
+    private void sendServerWebSocketPings() {
+        byte[] pingPayload = "hb".getBytes(StandardCharsets.UTF_8);
+        for (BridgeWebSocket ws : allSockets) {
+            if (ws != null && ws.isOpen()) {
+                try {
+                    ws.ping(pingPayload);
+                } catch (Exception ignored) {}
+            }
+        }
     }
 
     private void initSeats() {
@@ -340,6 +353,8 @@ public class LocalAirplaneServer extends NanoWSD {
         response.addHeader("Access-Control-Allow-Origin", "*");
         response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
         response.addHeader("Access-Control-Allow-Headers", "Content-Type");
+        response.addHeader("Connection", "close");
+        response.setKeepAlive(false);
     }
 
     private String resolveMimeType(String path) {
@@ -525,6 +540,20 @@ public class LocalAirplaneServer extends NanoWSD {
                 ws.playerName = msg.optString("playerName");
                 String preferredSeat = msg.optString("preferredSeat", null);
                 if (hostId == null) hostId = ws.playerId;
+
+                // Cleanly close and detach any duplicate stale sockets for the same playerId
+                if (ws.playerId != null && !ws.playerId.isEmpty()) {
+                    for (BridgeWebSocket other : allSockets) {
+                        if (other != ws && ws.playerId.equals(other.playerId)) {
+                            other.playerId = null;
+                            other.seat = null;
+                            allSockets.remove(other);
+                            try {
+                                other.close(NanoWSD.WebSocketFrame.CloseCode.NormalClosure, "Replaced by new session", false);
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
 
                 assignFirstAvailableSeat(ws, preferredSeat);
                 broadcastState();
