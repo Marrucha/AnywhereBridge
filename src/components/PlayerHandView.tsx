@@ -116,7 +116,7 @@ export const PlayerHandView: React.FC<PlayerHandViewProps> = ({
       )}
 
       {/* Full-width responsive card fan directly on the felt (no bulky background bar) */}
-      <div className="w-full flex items-end justify-center pt-0.5 pb-0.5 px-1 overflow-visible">
+      <div className="w-full flex items-end justify-center pt-1 pb-2 sm:pb-1 landscape:pb-0.5 px-1 overflow-visible">
         {orderedCards.map(({ card, isNewSuit }, idx) => {
           const isLast = idx === orderedCards.length - 1;
           const isPlayable = isMyTurn && phase === 'PLAYING' && isCardLegal(card, hand, leadCardSuit);

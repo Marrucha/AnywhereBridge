@@ -379,12 +379,28 @@ public class LocalAirplaneServer extends NanoWSD {
         @Override
         protected void onClose(NanoWSD.WebSocketFrame.CloseCode code, String reason, boolean initiatedByRemote) {
             allSockets.remove(this);
-            if (seat != null && seats.get(seat) != null) {
-                try {
-                    seats.get(seat).put("connected", false);
-                } catch (Exception ignored) {}
-            }
-            broadcastState();
+            final String closedSeat = this.seat;
+            final String closedPlayerId = this.playerId;
+            // Delay disconnect broadcast by 1500ms so brief mobile Wi-Fi reconnects never flicker players out of the room
+            botExecutor.schedule(() -> {
+                synchronized (LocalAirplaneServer.this) {
+                    boolean stillConnected = false;
+                    for (BridgeWebSocket other : allSockets) {
+                        if (!other.isOpen()) continue;
+                        if ((closedPlayerId != null && closedPlayerId.equals(other.playerId))
+                                || (closedSeat != null && closedSeat.equals(other.seat))) {
+                            stillConnected = true;
+                            break;
+                        }
+                    }
+                    if (!stillConnected && closedSeat != null && seats.get(closedSeat) != null) {
+                        try {
+                            seats.get(closedSeat).put("connected", false);
+                        } catch (Exception ignored) {}
+                        broadcastState();
+                    }
+                }
+            }, 1500, TimeUnit.MILLISECONDS);
             Log.d(TAG, "WebSocket closed. Total sockets: " + allSockets.size());
         }
 
@@ -393,6 +409,12 @@ public class LocalAirplaneServer extends NanoWSD {
             try {
                 String payload = message.getTextPayload();
                 JSONObject json = new JSONObject(payload);
+                if ("ping".equals(json.optString("type"))) {
+                    try {
+                        this.send("{\"type\":\"pong\"}");
+                    } catch (Exception ignored) {}
+                    return;
+                }
                 handleClientMessage(this, json);
             } catch (Exception e) {
                 Log.e(TAG, "Error handling WS message", e);
@@ -408,15 +430,47 @@ public class LocalAirplaneServer extends NanoWSD {
         }
     }
 
+    private boolean isSeatActivelyConnected(String targetSeat, String ignorePlayerId) {
+        if (targetSeat == null) return false;
+        for (BridgeWebSocket sock : allSockets) {
+            if (!sock.isOpen()) continue;
+            if (ignorePlayerId != null && ignorePlayerId.equals(sock.playerId)) continue;
+            if (targetSeat.equals(sock.seat)) return true;
+        }
+        return false;
+    }
+
+    private void assignSeatToSocket(BridgeWebSocket ws, String targetSeat) {
+        try {
+            JSONObject pObj = new JSONObject();
+            pObj.put("id", ws.playerId);
+            pObj.put("name", (ws.playerName != null && !ws.playerName.isEmpty()) ? ws.playerName : "Gracz");
+            pObj.put("connected", true);
+            pObj.put("isBot", false);
+            seats.put(targetSeat, pObj);
+            ws.seat = targetSeat;
+            for (BridgeWebSocket other : allSockets) {
+                if (ws.playerId != null && ws.playerId.equals(other.playerId)) {
+                    other.seat = targetSeat;
+                }
+            }
+        } catch (Exception ignored) {}
+    }
+
     private void assignFirstAvailableSeat(BridgeWebSocket ws) {
+        assignFirstAvailableSeat(ws, null);
+    }
+
+    private void assignFirstAvailableSeat(BridgeWebSocket ws, String preferredSeat) {
         if (ws == null || ws.playerId == null) return;
-        // Check if already seated
+        // 1. Check if already seated by playerId
         for (String s : SEATS) {
             JSONObject seatInfo = seats.get(s);
             if (seatInfo != null && ws.playerId.equals(seatInfo.optString("id"))) {
                 ws.seat = s;
                 try {
                     seatInfo.put("connected", true);
+                    seatInfo.put("isBot", false);
                     if (ws.playerName != null && !ws.playerName.isEmpty()) {
                         seatInfo.put("name", ws.playerName);
                     }
@@ -424,24 +478,39 @@ public class LocalAirplaneServer extends NanoWSD {
                 return;
             }
         }
-        // Assign first free or Bot seat
+        // 2. Check if seated by matching playerName on a seat with no active open socket
+        if (ws.playerName != null && !ws.playerName.isEmpty()) {
+            for (String s : SEATS) {
+                JSONObject seatInfo = seats.get(s);
+                if (seatInfo != null && !seatInfo.optBoolean("isBot", false)
+                        && ws.playerName.equalsIgnoreCase(seatInfo.optString("name"))
+                        && !isSeatActivelyConnected(s, ws.playerId)) {
+                    assignSeatToSocket(ws, s);
+                    return;
+                }
+            }
+        }
+        // 3. Check preferredSeat if free, Bot, or disconnected
+        if (preferredSeat != null && Arrays.asList(SEATS).contains(preferredSeat)) {
+            JSONObject prefExisting = seats.get(preferredSeat);
+            if (prefExisting == null || prefExisting.optBoolean("isBot", false)
+                    || !isSeatActivelyConnected(preferredSeat, ws.playerId)) {
+                assignSeatToSocket(ws, preferredSeat);
+                return;
+            }
+        }
+        // 4. Assign first free or Bot seat
         for (String s : SEATS) {
             JSONObject existing = seats.get(s);
             if (existing == null || existing.optBoolean("isBot", false)) {
-                try {
-                    JSONObject pObj = new JSONObject();
-                    pObj.put("id", ws.playerId);
-                    pObj.put("name", (ws.playerName != null && !ws.playerName.isEmpty()) ? ws.playerName : "Gracz");
-                    pObj.put("connected", true);
-                    pObj.put("isBot", false);
-                    seats.put(s, pObj);
-                    ws.seat = s;
-                    for (BridgeWebSocket other : allSockets) {
-                        if (ws.playerId.equals(other.playerId)) {
-                            other.seat = s;
-                        }
-                    }
-                } catch (Exception ignored) {}
+                assignSeatToSocket(ws, s);
+                return;
+            }
+        }
+        // 5. Fallback: reclaim any seat that has no active open socket
+        for (String s : SEATS) {
+            if (!isSeatActivelyConnected(s, ws.playerId)) {
+                assignSeatToSocket(ws, s);
                 return;
             }
         }
@@ -454,24 +523,10 @@ public class LocalAirplaneServer extends NanoWSD {
             if ("join".equals(type)) {
                 ws.playerId = msg.optString("playerId");
                 ws.playerName = msg.optString("playerName");
+                String preferredSeat = msg.optString("preferredSeat", null);
                 if (hostId == null) hostId = ws.playerId;
 
-                boolean foundExistingSeat = false;
-                for (String s : SEATS) {
-                    JSONObject seatInfo = seats.get(s);
-                    if (seatInfo != null && ws.playerId.equals(seatInfo.optString("id"))) {
-                        ws.seat = s;
-                        seatInfo.put("connected", true);
-                        if (ws.playerName != null && !ws.playerName.isEmpty()) {
-                            seatInfo.put("name", ws.playerName);
-                        }
-                        foundExistingSeat = true;
-                        break;
-                    }
-                }
-                if (!foundExistingSeat && ws.seat == null) {
-                    assignFirstAvailableSeat(ws);
-                }
+                assignFirstAvailableSeat(ws, preferredSeat);
                 broadcastState();
                 return;
             }
@@ -572,6 +627,14 @@ public class LocalAirplaneServer extends NanoWSD {
 
             if ("make_bid".equals(type)) {
                 if (undoRequest != null) return;
+                if (ws.seat == null) {
+                    if (ws.playerId == null) ws.playerId = msg.optString("playerId", null);
+                    String fallbackSeat = msg.optString("seat", null);
+                    assignFirstAvailableSeat(ws, fallbackSeat);
+                    if (ws.seat == null && fallbackSeat != null && Arrays.asList(SEATS).contains(fallbackSeat)) {
+                        ws.seat = fallbackSeat;
+                    }
+                }
                 if (!"BIDDING".equals(phase) || ws.seat == null || !ws.seat.equals(currentBidder)) return;
                 JSONObject bidData = msg.optJSONObject("bid");
                 if (bidData == null) return;
@@ -582,6 +645,14 @@ public class LocalAirplaneServer extends NanoWSD {
 
             if ("play_card".equals(type)) {
                 if (undoRequest != null) return;
+                if (ws.seat == null) {
+                    if (ws.playerId == null) ws.playerId = msg.optString("playerId", null);
+                    String fallbackSeat = msg.optString("seat", null);
+                    assignFirstAvailableSeat(ws, fallbackSeat);
+                    if (ws.seat == null && fallbackSeat != null && Arrays.asList(SEATS).contains(fallbackSeat)) {
+                        ws.seat = fallbackSeat;
+                    }
+                }
                 if (!"PLAYING".equals(phase) || ws.seat == null) return;
                 undoNotice = null;
 
@@ -1341,8 +1412,8 @@ public class LocalAirplaneServer extends NanoWSD {
         } catch (Exception ignored) {}
     }
 
-    private void broadcastState() {
-        saveState();
+    private synchronized void broadcastState() {
+        botExecutor.execute(this::saveState);
         // Ensure every open socket has its seat synced with seats map by playerId
         for (BridgeWebSocket wsSync : allSockets) {
             if (!wsSync.isOpen() || wsSync.playerId == null) continue;
@@ -1355,7 +1426,7 @@ public class LocalAirplaneServer extends NanoWSD {
             }
         }
         for (BridgeWebSocket ws : allSockets) {
-            if (!ws.isOpen()) continue;
+            if (!ws.isOpen() || ws.playerId == null) continue;
             try {
                 JSONObject root = new JSONObject();
                 root.put("type", "state_update");
@@ -1414,6 +1485,25 @@ public class LocalAirplaneServer extends NanoWSD {
                     }
                 }
                 s.put("myHand", myHandArr);
+
+                // Include handsBySeat so client always has a bulletproof fallback for displaying bottomSeat's hand
+                if (!"LOBBY".equals(phase)) {
+                    JSONObject handsBySeatObj = new JSONObject();
+                    for (String k : SEATS) {
+                        JSONArray hArr = new JSONArray();
+                        if (hands.get(k) != null) {
+                            for (String cId : hands.get(k)) {
+                                JSONObject cObj = new JSONObject();
+                                cObj.put("id", cId);
+                                cObj.put("suit", String.valueOf(cId.charAt(1)));
+                                cObj.put("rank", String.valueOf(cId.charAt(0)));
+                                hArr.put(cObj);
+                            }
+                        }
+                        handsBySeatObj.put(k, hArr);
+                    }
+                    s.put("handsBySeat", handsBySeatObj);
+                }
 
                 // Dummy hand (only if exposed)
                 if (dummySeat != null && openingLeadMade && hands.get(dummySeat) != null) {

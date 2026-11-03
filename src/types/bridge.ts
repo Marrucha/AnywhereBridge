@@ -104,6 +104,7 @@ export interface RoomState {
     S: Card[];
     W: Card[];
   };
+  handsBySeat?: Record<Seat, Card[]>;
   dealHands?: Record<Seat, Card[]>;
   myHand: Card[];
   dummyHand: Card[] | null;
@@ -139,12 +140,13 @@ export interface ChatMessage {
 }
 
 export type ClientMessage =
-  | { type: 'join'; roomId: string; playerId: string; playerName: string }
+  | { type: 'join'; roomId: string; playerId: string; playerName: string; preferredSeat?: Seat | null }
+  | { type: 'ping' }
   | { type: 'take_seat'; seat: Seat }
   | { type: 'leave_seat' }
   | { type: 'start_game' }
-  | { type: 'make_bid'; bid: { type: 'BID' | 'PASS' | 'DOUBLE' | 'REDOUBLE'; level?: number; suit?: TrumpSuit } }
-  | { type: 'play_card'; cardId: string }
+  | { type: 'make_bid'; bid: { type: 'BID' | 'PASS' | 'DOUBLE' | 'REDOUBLE'; level?: number; suit?: TrumpSuit }; seat?: Seat | null; playerId?: string }
+  | { type: 'play_card'; cardId: string; seat?: Seat | null; playerId?: string }
   | { type: 'collect_trick' }
   | { type: 'request_undo' }
   | { type: 'respond_undo'; accept: boolean }
@@ -155,6 +157,7 @@ export type ClientMessage =
 
 export type ServerMessage =
   | { type: 'state_update'; state: RoomState; yourSeat: Seat | null }
+  | { type: 'pong' }
   | { type: 'room_reset' }
   | { type: 'error'; message: string }
   | { type: 'chat_message'; message: ChatMessage };

@@ -83,35 +83,65 @@ export function clearStoredScores(): void {
   }
 }
 
+let memoryPlayerId: string | null = null;
+let memoryPlayerName: string = '';
+let memoryPlayerSeat: Seat | null = null;
+
 export function getOrCreatePlayerId(): string {
-  let id = localStorage.getItem(PLAYER_ID_KEY);
-  if (!id) {
-    id = 'p_' + Math.random().toString(36).substring(2, 9);
-    localStorage.setItem(PLAYER_ID_KEY, id);
+  try {
+    let id = localStorage.getItem(PLAYER_ID_KEY);
+    if (!id) {
+      id = 'p_' + Math.random().toString(36).substring(2, 9);
+      localStorage.setItem(PLAYER_ID_KEY, id);
+    }
+    memoryPlayerId = id;
+    return id;
+  } catch {
+    if (!memoryPlayerId) {
+      memoryPlayerId = 'p_' + Math.random().toString(36).substring(2, 9);
+    }
+    return memoryPlayerId;
   }
-  return id;
 }
 
 export function getStoredPlayerName(): string {
-  return localStorage.getItem(PLAYER_NAME_KEY) || '';
+  try {
+    return localStorage.getItem(PLAYER_NAME_KEY) || memoryPlayerName;
+  } catch {
+    return memoryPlayerName;
+  }
 }
 
 export function saveStoredPlayerName(name: string): void {
-  localStorage.setItem(PLAYER_NAME_KEY, name);
+  memoryPlayerName = name;
+  try {
+    localStorage.setItem(PLAYER_NAME_KEY, name);
+  } catch {
+    // ignore storage errors in restricted browsers
+  }
 }
 
 export function getStoredSeat(): Seat | null {
-  const seat = localStorage.getItem(PLAYER_SEAT_KEY);
-  if (seat === 'N' || seat === 'E' || seat === 'S' || seat === 'W') {
-    return seat;
+  try {
+    const seat = localStorage.getItem(PLAYER_SEAT_KEY) || memoryPlayerSeat;
+    if (seat === 'N' || seat === 'E' || seat === 'S' || seat === 'W') {
+      return seat;
+    }
+    return null;
+  } catch {
+    return memoryPlayerSeat;
   }
-  return null;
 }
 
 export function saveStoredSeat(seat: Seat | null): void {
-  if (seat) {
-    localStorage.setItem(PLAYER_SEAT_KEY, seat);
-  } else {
-    localStorage.removeItem(PLAYER_SEAT_KEY);
+  memoryPlayerSeat = seat;
+  try {
+    if (seat) {
+      localStorage.setItem(PLAYER_SEAT_KEY, seat);
+    } else {
+      localStorage.removeItem(PLAYER_SEAT_KEY);
+    }
+  } catch {
+    // ignore storage errors in restricted browsers
   }
 }

@@ -441,6 +441,7 @@ function broadcastRoom(roomId) {
         // - dummy hand ONLY if dummy is exposed (opening lead made)
         const myHand = room.phase !== 'LOBBY' && seat && room.hands[seat] ? room.hands[seat] : [];
         const dummyHand = room.phase !== 'LOBBY' && room.dummySeat && room.openingLeadMade ? room.hands[room.dummySeat] : null;
+        const handsBySeat = room.phase !== 'LOBBY' ? room.hands : undefined;
 
         const maskedState = {
           roomId: room.roomId,
@@ -452,6 +453,7 @@ function broadcastRoom(roomId) {
           connectedPlayers,
           seats: room.seats,
           myHand,
+          handsBySeat,
           dummyHand,
           dealHands: room.phase === 'BOARD_RESULT' ? room.dealHands : undefined,
           dummySeat: room.dummySeat,
@@ -506,15 +508,45 @@ wss.on('connection', (ws) => {
   });
 });
 
-function assignFirstAvailableSeatInRoom(room, ws, info) {
+function isSeatActivelyConnectedInRoom(roomId, targetSeat, ignorePlayerId) {
+  for (const [sWs, sInfo] of clientSockets.entries()) {
+    if (sInfo.roomId === roomId && sWs.readyState === WebSocket.OPEN) {
+      if (ignorePlayerId && sInfo.playerId === ignorePlayerId) continue;
+      if (sInfo.seat === targetSeat) return true;
+    }
+  }
+  return false;
+}
+
+function assignFirstAvailableSeatInRoom(room, ws, info, preferredSeat = null) {
   if (!room || !info || !info.playerId) return null;
   for (const s of SEAT_ORDER) {
     if (room.seats[s]?.id === info.playerId) {
       info.seat = s;
       room.seats[s].connected = true;
+      room.seats[s].isBot = false;
       if (info.playerName) room.seats[s].name = info.playerName;
       clientSockets.set(ws, info);
       return s;
+    }
+  }
+  if (info.playerName) {
+    for (const s of SEAT_ORDER) {
+      if (room.seats[s] && !room.seats[s].isBot && room.seats[s].name?.toLowerCase() === info.playerName.toLowerCase() && !isSeatActivelyConnectedInRoom(room.roomId, s, info.playerId)) {
+        room.seats[s] = { id: info.playerId, name: info.playerName, connected: true, isBot: false };
+        info.seat = s;
+        clientSockets.set(ws, info);
+        return s;
+      }
+    }
+  }
+  if (preferredSeat && SEAT_ORDER.includes(preferredSeat)) {
+    const pref = room.seats[preferredSeat];
+    if (!pref || pref.isBot || !isSeatActivelyConnectedInRoom(room.roomId, preferredSeat, info.playerId)) {
+      room.seats[preferredSeat] = { id: info.playerId, name: info.playerName || 'Gracz', connected: true, isBot: false };
+      info.seat = preferredSeat;
+      clientSockets.set(ws, info);
+      return preferredSeat;
     }
   }
   for (const s of SEAT_ORDER) {
@@ -525,10 +557,25 @@ function assignFirstAvailableSeatInRoom(room, ws, info) {
       return s;
     }
   }
+  for (const s of SEAT_ORDER) {
+    if (!isSeatActivelyConnectedInRoom(room.roomId, s, info.playerId)) {
+      room.seats[s] = { id: info.playerId, name: info.playerName || 'Gracz', connected: true, isBot: false };
+      info.seat = s;
+      clientSockets.set(ws, info);
+      return s;
+    }
+  }
   return null;
 }
 
 function handleMessage(ws, msg) {
+  if (msg.type === 'ping') {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'pong' }));
+    }
+    return;
+  }
+
   let info = clientSockets.get(ws);
   if (msg.type === '__bot_bid') {
     info = { roomId: msg.roomId, seat: msg.seat };
@@ -540,21 +587,9 @@ function handleMessage(ws, msg) {
     const room = getOrCreateRoom(roomId);
     if (!room.hostId) room.hostId = msg.playerId;
 
-    let seat = null;
-    for (const s of SEAT_ORDER) {
-      if (room.seats[s]?.id === msg.playerId) {
-        seat = s;
-        room.seats[s].connected = true;
-        if (msg.playerName) room.seats[s].name = msg.playerName;
-        break;
-      }
-    }
-
-    const newInfo = { playerId: msg.playerId, playerName: msg.playerName, roomId, seat };
+    const newInfo = { playerId: msg.playerId, playerName: msg.playerName, roomId, seat: null };
     clientSockets.set(ws, newInfo);
-    if (!seat) {
-      assignFirstAvailableSeatInRoom(room, ws, newInfo);
-    }
+    assignFirstAvailableSeatInRoom(room, ws, newInfo, msg.preferredSeat || null);
     broadcastRoom(roomId);
     return;
   }
@@ -655,6 +690,10 @@ function handleMessage(ws, msg) {
 
   if (msg.type === 'make_bid') {
     if (room.undoRequest) return;
+    if (!info.seat) {
+      assignFirstAvailableSeatInRoom(room, ws, info, msg.seat || null);
+      if (!info.seat && msg.seat && SEAT_ORDER.includes(msg.seat)) info.seat = msg.seat;
+    }
     if (room.phase !== 'BIDDING' || room.currentBidder !== info.seat) return;
     room.undoNotice = null;
     const bid = { ...msg.bid, bidder: info.seat };
@@ -752,6 +791,10 @@ function handleMessage(ws, msg) {
 
   if (msg.type === 'play_card') {
     if (room.undoRequest) return;
+    if (!info.seat) {
+      assignFirstAvailableSeatInRoom(room, ws, info, msg.seat || null);
+      if (!info.seat && msg.seat && SEAT_ORDER.includes(msg.seat)) info.seat = msg.seat;
+    }
     if (room.phase !== 'PLAYING') return;
     room.undoNotice = null;
 

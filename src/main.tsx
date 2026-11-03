@@ -12,6 +12,21 @@ window.addEventListener('unhandledrejection', (event) => {
   console.error('Unhandled Promise Rejection:', event.reason);
 });
 
+// Sync --app-height with actual visible viewport height so mobile browser bottom toolbars never cover cards
+function syncAppHeight() {
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  if (vh > 0) {
+    document.documentElement.style.setProperty('--app-height', `${vh}px`);
+  }
+}
+syncAppHeight();
+window.addEventListener('resize', syncAppHeight);
+window.addEventListener('orientationchange', () => setTimeout(syncAppHeight, 100));
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncAppHeight);
+  window.visualViewport.addEventListener('scroll', syncAppHeight);
+}
+
 function mountApp() {
   let rootElement = document.getElementById('root');
   if (!rootElement) {

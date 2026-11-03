@@ -120,11 +120,12 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
       ? currentTrick.winnerSeat
       : currentTurn;
 
-  const isMyTurn = !isUndoPending && mySeat !== null && effectiveTurn === mySeat;
+  const activeMySeat: Seat = mySeat || bottomSeat;
+  const isMyTurn = !isUndoPending && effectiveTurn === activeMySeat;
   const isDummyTurn = !isUndoPending && dummySeat !== null && effectiveTurn === dummySeat;
   // In bridge, declarer plays the dummy's cards from the top hand on dummy's turn!
   const canIPlayDummy =
-    !isUndoPending && mySeat !== null && declarerSeat === mySeat && isDummyTurn;
+    !isUndoPending && declarerSeat === activeMySeat && isDummyTurn;
 
   const leadCardSuit =
     currentTrick.cards.length > 0 && currentTrick.cards.length < 4
@@ -153,12 +154,21 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
     if (phase === 'BIDDING' || phase === 'LOBBY') setShowBiddingModal(false);
   }, [phase, state.boardNumber]);
 
+  const effectiveBottomHand =
+    myHand && myHand.length > 0
+      ? myHand
+      : state.handsBySeat?.[bottomSeat] && state.handsBySeat[bottomSeat].length > 0
+        ? state.handsBySeat[bottomSeat]
+        : dummySeat === bottomSeat && dummyHand
+          ? dummyHand
+          : [];
+
   const bottomHandToDisplay =
     phase === 'LOBBY'
       ? []
       : phase === 'BOARD_RESULT'
-        ? (state.dealHands?.[bottomSeat] || myHand)
-        : (myHand && myHand.length > 0 ? myHand : (dummySeat === bottomSeat && dummyHand ? dummyHand : []));
+        ? (state.dealHands?.[bottomSeat] || effectiveBottomHand)
+        : effectiveBottomHand;
 
   const getCleanPlayerName = (seat: Seat): string => {
     const raw = seats[seat]?.name || 'Pusto';
@@ -395,7 +405,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
           </div>
 
           {/* BOTTOM SECTION: MY SEAT (bottomSeat) / PORTRAIT BIDDING CONTROLS & MY HAND */}
-          <div className="relative z-30 flex flex-col items-center w-full space-y-0.5 shrink-0">
+          <div className="relative z-30 flex flex-col items-center w-full space-y-0.5 shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))] landscape:pb-[max(0.25rem,env(safe-area-inset-bottom))]">
             <div className="landscape:hidden shrink-0 flex items-center gap-2">
               {renderSeatBadge(bottomSeat)}
               {phase === 'BOARD_RESULT' && hideResultCenterBox && (
@@ -416,7 +426,7 @@ export const BridgeTable: React.FC<BridgeTableProps> = ({
               <div className="w-full landscape:hidden">
                 <BiddingBox
                   bids={bids} currentBidder={currentBidder}
-                  mySeat={isUndoPending ? null : mySeat} onMakeBid={onMakeBid}
+                  mySeat={isUndoPending ? null : activeMySeat} onMakeBid={onMakeBid}
                 />
               </div>
             )}

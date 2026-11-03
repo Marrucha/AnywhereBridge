@@ -96,6 +96,7 @@ export const App: React.FC = () => {
 
   const wsRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const pingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Local Bot game integration
   const {
@@ -168,19 +169,26 @@ export const App: React.FC = () => {
 
         ws.onopen = () => {
           setConnected(true);
-          // Send join message (server automatically restores seat by playerId or assigns first free seat N/E/S/W)
           const joinMsg: ClientMessage = {
             type: 'join',
             roomId,
             playerId,
             playerName: playerNameRef.current,
+            preferredSeat: getStoredSeat(),
           };
           ws.send(JSON.stringify(joinMsg));
+          if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+          pingIntervalRef.current = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(JSON.stringify({ type: 'ping' }));
+            }
+          }, 2500);
         };
 
         ws.onmessage = (event) => {
           try {
             const msg: ServerMessage = JSON.parse(event.data);
+            if (msg.type === 'pong') return;
             if (msg.type === 'state_update') {
               if (msg.state.lastResult && msg.state.lastResult.hcpNS === undefined && msg.state.dealHands) {
                 const { hcpNS, hcpEW } = calculateDealHcp(msg.state.dealHands);
@@ -194,9 +202,15 @@ export const App: React.FC = () => {
                   impEW: impRes.impEW,
                 };
               }
+              const resolvedSeat = msg.yourSeat || (msg.state.phase !== 'LOBBY' ? getStoredSeat() : null);
+              if ((!msg.state.myHand || msg.state.myHand.length === 0) && resolvedSeat && msg.state.handsBySeat?.[resolvedSeat]) {
+                msg.state.myHand = msg.state.handsBySeat[resolvedSeat];
+              }
               setRoomState(msg.state);
-              setMySeat(msg.yourSeat);
-              saveStoredSeat(msg.yourSeat);
+              if (msg.yourSeat || msg.state.phase === 'LOBBY') {
+                setMySeat(msg.yourSeat);
+                saveStoredSeat(msg.yourSeat);
+              }
 
               // Sync score record to localStorage if fresh result
               if (msg.state.lastResult) {
@@ -224,11 +238,12 @@ export const App: React.FC = () => {
         };
 
         ws.onclose = () => {
+          if (pingIntervalRef.current) { clearInterval(pingIntervalRef.current); pingIntervalRef.current = null; }
           setConnected(false);
           wsRef.current = null;
-          // Reconnect attempt after 4s (only if still in multiplayer mode)
+          // Fast reconnect (600ms) so mobile Wi-Fi hiccups never cause bidding delays
           if (!isBotGameRef.current) {
-            reconnectTimeoutRef.current = setTimeout(connectWs, 4000);
+            reconnectTimeoutRef.current = setTimeout(connectWs, 600);
           }
         };
 
@@ -238,7 +253,7 @@ export const App: React.FC = () => {
         };
       } catch (_) {
         if (!isBotGameRef.current) {
-          reconnectTimeoutRef.current = setTimeout(connectWs, 4000);
+          reconnectTimeoutRef.current = setTimeout(connectWs, 600);
         }
       }
     };
@@ -246,6 +261,7 @@ export const App: React.FC = () => {
     connectWs();
 
     return () => {
+      if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
       if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
       if (wsRef.current) wsRef.current.close();
     };
@@ -288,12 +304,12 @@ export const App: React.FC = () => {
 
   const handleMakeBid = (bid: any) => {
     if (isBotGame) makeBotGameBid(bid);
-    else sendMessage({ type: 'make_bid', bid });
+    else sendMessage({ type: 'make_bid', bid, seat: effectiveMySeat, playerId });
   };
 
   const handlePlayCard = (cardId: string) => {
     if (isBotGame) playBotGameCard(cardId);
-    else sendMessage({ type: 'play_card', cardId });
+    else sendMessage({ type: 'play_card', cardId, seat: effectiveMySeat, playerId });
   };
 
   const handleCollectTrick = () => {
@@ -392,7 +408,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-felt-dark text-slate-100 overflow-hidden font-sans">
+    <div className="flex flex-col h-full w-full bg-felt-dark text-slate-100 overflow-hidden font-sans">
       {/* TOP HUD BAR (Hidden in Landscape during active game so play area is 100% fullscreen) */}
       <div className={effectiveState && effectiveState.phase !== 'LOBBY' ? 'landscape:hidden shrink-0' : 'shrink-0'}>
         <AppHeader
@@ -441,52 +457,27 @@ export const App: React.FC = () => {
 
       {/* MODALS */}
       <TableChatModal
-        isOpen={isChatOpen}
-        onClose={() => {
-          setIsChatOpen(false);
-          setUnreadChatCount(0);
-        }}
-        messages={chatMessages}
-        onSendMessage={handleSendChatMessage}
-        mySeat={effectiveMySeat}
-        myName={playerName}
+        isOpen={isChatOpen} onClose={() => { setIsChatOpen(false); setUnreadChatCount(0); }}
+        messages={chatMessages} onSendMessage={handleSendChatMessage}
+        mySeat={effectiveMySeat} myName={playerName}
       />
-
       <ScoreModal
-        isOpen={isScoreOpen}
-        onClose={() => setIsScoreOpen(false)}
-        scores={localScores}
-        onClearHistory={handleClearHistory}
-        onStartNewEight={handleStartNewEight}
-        onNextBoard={handleNextBoard}
+        isOpen={isScoreOpen} onClose={() => setIsScoreOpen(false)} scores={localScores}
+        onClearHistory={handleClearHistory} onStartNewEight={handleStartNewEight} onNextBoard={handleNextBoard}
       />
-
       {effectiveState?.phase === 'BOARD_RESULT' && effectiveState?.boardNumber % 8 === 0 && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
           <EightBoardSummary scores={localScores} onStartNewEight={handleStartNewEight} />
         </div>
       )}
-
-      <QRModal
-        isOpen={isQROpen}
-        onClose={() => setIsQROpen(false)}
-        detectedIps={detectedIps}
-        roomId={roomId}
-      />
-
+      <QRModal isOpen={isQROpen} onClose={() => setIsQROpen(false)} detectedIps={detectedIps} roomId={roomId} />
       <ConnectionModal
-        isOpen={isConnectionOpen}
-        onClose={() => setIsConnectionOpen(false)}
-        currentServer={serverAddress}
-        currentRoom={roomId}
-        onSave={handleUpdateConnection}
+        isOpen={isConnectionOpen} onClose={() => setIsConnectionOpen(false)}
+        currentServer={serverAddress} currentRoom={roomId} onSave={handleUpdateConnection}
       />
-
       <PlayersModal
-        isOpen={isPlayersOpen}
-        onClose={() => setIsPlayersOpen(false)}
-        state={effectiveState}
-        onOpenQR={() => setIsQROpen(true)}
+        isOpen={isPlayersOpen} onClose={() => setIsPlayersOpen(false)}
+        state={effectiveState} onOpenQR={() => setIsQROpen(true)}
       />
     </div>
   );

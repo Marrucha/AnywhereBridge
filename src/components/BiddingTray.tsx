@@ -56,12 +56,12 @@ export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids, isBiddin
 
   const renderBidCell = (cell: TrayCell | undefined, key: number) => {
     if (cell === undefined) {
-      return <div key={key} className="py-1 px-1 text-center text-xs" />;
+      return <div key={key} className="py-1.5 px-1 text-center text-sm" />;
     }
 
     if (cell === null) {
       return (
-        <div key={key} className="py-1 px-1.5 text-center text-slate-600 font-mono text-xs">
+        <div key={key} className="py-1.5 px-1.5 text-center text-slate-500 font-mono text-sm sm:text-base font-bold">
           -
         </div>
       );
@@ -71,7 +71,7 @@ export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids, isBiddin
       return (
         <div
           key={key}
-          className="py-1 px-1.5 text-center text-amber-300 font-black text-xs bg-amber-500/20 border border-amber-400/60 rounded animate-pulse"
+          className="py-1.5 px-1.5 text-center text-amber-300 font-black text-sm sm:text-base bg-amber-500/20 border border-amber-400/60 rounded animate-pulse"
         >
           ?
         </div>
@@ -82,7 +82,7 @@ export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids, isBiddin
 
     if (bid.type === 'PASS') {
       return (
-        <div key={key} className="py-1 px-1.5 text-center text-emerald-400 font-bold text-xs bg-emerald-950/30 rounded">
+        <div key={key} className="py-1.5 px-1.5 text-center text-emerald-400 font-black text-sm sm:text-base bg-emerald-950/40 rounded">
           PAS
         </div>
       );
@@ -90,7 +90,7 @@ export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids, isBiddin
 
     if (bid.type === 'DOUBLE') {
       return (
-        <div key={key} className="py-1 px-1.5 text-center text-rose-400 font-extrabold text-xs bg-rose-950/40 rounded">
+        <div key={key} className="py-1.5 px-1.5 text-center text-rose-400 font-black text-sm sm:text-base bg-rose-950/50 rounded">
           X
         </div>
       );
@@ -98,7 +98,7 @@ export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids, isBiddin
 
     if (bid.type === 'REDOUBLE') {
       return (
-        <div key={key} className="py-1 px-1.5 text-center text-blue-400 font-extrabold text-xs bg-blue-950/40 rounded">
+        <div key={key} className="py-1.5 px-1.5 text-center text-blue-400 font-black text-sm sm:text-base bg-blue-950/50 rounded">
           XX
         </div>
       );
@@ -107,7 +107,7 @@ export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids, isBiddin
     const suitInfo = bid.suit ? SUIT_ICONS[bid.suit] : null;
 
     return (
-      <div key={key} className="py-1 px-1.5 text-center font-black text-sm sm:text-base bg-slate-800/80 rounded border border-slate-700/50 flex items-center justify-center gap-0.5">
+      <div key={key} className="py-1.5 px-1.5 text-center font-black text-base sm:text-lg bg-slate-800/90 rounded border border-slate-700/60 flex items-center justify-center gap-0.5">
         <span className="text-white">{bid.level}</span>
         {suitInfo && (
           <span className={suitInfo.color} style={suitInfo.style}>
@@ -120,14 +120,14 @@ export const BiddingTray: React.FC<BiddingTrayProps> = ({ dealer, bids, isBiddin
 
   return (
     <div className="bg-slate-900/95 backdrop-blur border border-slate-700/80 rounded-xl p-1.5 sm:p-2 shadow-xl w-full max-w-md mx-auto shrink-0">
-      <div className="grid grid-cols-4 gap-1 border-b border-slate-700/80 pb-1 mb-1 text-center font-bold text-[10px] sm:text-xs text-amber-400 tracking-wider">
+      <div className="grid grid-cols-4 gap-1 border-b border-slate-700/80 pb-1 mb-1 text-center font-black text-sm sm:text-base text-amber-400 tracking-wider">
         <div>N</div>
         <div>E</div>
         <div>S</div>
         <div>W</div>
       </div>
 
-      <div ref={scrollRef} className="max-h-36 land:max-h-28 desk:max-h-44 overflow-y-auto space-y-0.5">
+      <div ref={scrollRef} className="max-h-40 land:max-h-32 desk:max-h-48 overflow-y-auto space-y-1">
         {rows.map((row, rIdx) => (
           <div key={rIdx} className="grid grid-cols-4 gap-1 items-center">
             {[0, 1, 2, 3].map(cIdx => renderBidCell(row[cIdx], cIdx))}

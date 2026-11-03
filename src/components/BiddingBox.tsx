@@ -45,10 +45,10 @@ export const BiddingBox: React.FC<BiddingBoxProps> = ({
 
   if (!isMyTurn) {
     return (
-      <div className="bg-slate-900/90 backdrop-blur border border-slate-700/70 rounded-xl px-3 py-1.5 text-center shadow-lg">
-        <p className="text-xs text-slate-300">
+      <div className="bg-slate-900/95 backdrop-blur border border-slate-700/80 rounded-xl px-3.5 py-2 text-center shadow-lg">
+        <p className="text-sm sm:text-base text-slate-200 font-semibold">
           Licytuje:{' '}
-          <span className="font-bold text-amber-400">
+          <span className="font-black text-amber-400">
             {currentBidder === 'N' ? 'Północ (N)' : currentBidder === 'S' ? 'Południe (S)' : currentBidder === 'E' ? 'Wschód (E)' : 'Zachód (W)'}
           </span>
         </p>
@@ -57,12 +57,12 @@ export const BiddingBox: React.FC<BiddingBoxProps> = ({
   }
 
   return (
-    <div className="bg-slate-900/95 backdrop-blur border-2 border-amber-500/70 rounded-xl p-2 land:p-1.5 desk:p-3 shadow-2xl w-full max-w-md mx-auto">
-      <div className="flex items-center justify-between mb-1">
-        <span className="text-[11px] desk:text-xs font-extrabold uppercase tracking-wider text-amber-400">
+    <div className="bg-slate-900/95 backdrop-blur border-2 border-amber-500/80 rounded-xl p-2 land:p-1.5 desk:p-3 shadow-2xl w-full max-w-md mx-auto">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-xs sm:text-sm font-black uppercase tracking-wider text-amber-400">
           Twoja odzywka ({mySeat})
         </span>
-        <span className="text-[10px] text-slate-400">Wysokość i kolor</span>
+        <span className="text-xs font-semibold text-slate-300">Wysokość i kolor</span>
       </div>
 
       {/* Levels 1-7 */}
@@ -72,7 +72,7 @@ export const BiddingBox: React.FC<BiddingBoxProps> = ({
             key={lvl}
             type="button"
             onClick={() => handleLevelClick(lvl)}
-            className={`py-1.5 land:py-1 desk:py-2 text-sm sm:text-base font-black rounded-lg border transition-all ${
+            className={`py-2 land:py-1.5 desk:py-2.5 text-base sm:text-lg font-black rounded-lg border transition-all ${
               selectedLevel === lvl
                 ? 'bg-amber-500 border-amber-300 text-slate-950 scale-105 shadow-md'
                 : 'bg-slate-800 border-slate-700 text-slate-100 hover:bg-slate-700'
@@ -94,7 +94,7 @@ export const BiddingBox: React.FC<BiddingBoxProps> = ({
                 type="button"
                 disabled={!isLegal}
                 onClick={() => handleSuitClick(suit)}
-                className={`py-1.5 px-1 rounded-lg border font-black text-base sm:text-lg flex items-center justify-center transition-all bg-white shadow ${
+                className={`py-2 px-1 rounded-lg border font-black text-lg sm:text-xl flex items-center justify-center transition-all bg-white shadow ${
                   isLegal
                     ? 'border-slate-300 hover:scale-105 active:scale-95 cursor-pointer'
                     : 'opacity-30 border-slate-400 cursor-not-allowed bg-slate-200'
@@ -109,11 +109,11 @@ export const BiddingBox: React.FC<BiddingBoxProps> = ({
       )}
 
       {/* Action buttons: Pass, Double, Redouble */}
-      <div className="grid grid-cols-3 gap-1">
+      <div className="grid grid-cols-3 gap-1.5">
         <button
           type="button"
           onClick={() => onMakeBid({ type: 'PASS' })}
-          className="py-1.5 desk:py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 active:scale-95 text-white font-bold text-xs tracking-wide transition shadow"
+          className="py-2 land:py-1.5 desk:py-2.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 active:scale-95 text-white font-black text-sm sm:text-base tracking-wide transition shadow"
         >
           PAS
         </button>
@@ -122,7 +122,7 @@ export const BiddingBox: React.FC<BiddingBoxProps> = ({
           type="button"
           disabled={!canDouble}
           onClick={() => onMakeBid({ type: 'DOUBLE' })}
-          className={`py-1.5 desk:py-2 rounded-lg font-bold text-xs tracking-wide transition shadow ${
+          className={`py-2 land:py-1.5 desk:py-2.5 rounded-lg font-black text-sm sm:text-base tracking-wide transition shadow ${
             canDouble
               ? 'bg-rose-700 hover:bg-rose-600 active:scale-95 text-white cursor-pointer'
               : 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
@@ -135,7 +135,7 @@ export const BiddingBox: React.FC<BiddingBoxProps> = ({
           type="button"
           disabled={!canRedouble}
           onClick={() => onMakeBid({ type: 'REDOUBLE' })}
-          className={`py-1.5 desk:py-2 rounded-lg font-bold text-xs tracking-wide transition shadow ${
+          className={`py-2 land:py-1.5 desk:py-2.5 rounded-lg font-black text-sm sm:text-base tracking-wide transition shadow ${
             canRedouble
               ? 'bg-blue-700 hover:bg-blue-600 active:scale-95 text-white cursor-pointer'
               : 'bg-slate-800 text-slate-500 border border-slate-700/60 cursor-not-allowed'
